@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>Hello wasm-pack!</title>
+  <style>
+    body {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+  </style>
+</head>
+
+<body>
+  <noscript>This page contains webassembly and javascript content, please enable javascript in your browser.</noscript>
+  <div>
+    <canvas id="the-canvas"></canvas>
+    <div style="width: 100%; justify-content: left; align-items: left;">
+      <div>Ticks: <span id="ticks"></span></div>
+      <div>Cells: <span id="cells-count"></span></div>
+      <div>Collisions: <span id="collisions-count"></span></div>
+      <div>Collision pairs tested: <span id="collision-pairs-tested"></span></div>
+    </div>
+  </div>
+  <script src="./bootstrap.js"></script>
+
+  <script src="//cdn.jsdelivr.net/npm/eruda"></script>
+  <script>eruda.init();</script>
+</body>
+
+</html>
