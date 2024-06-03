@@ -51,9 +51,9 @@ const getIndex = (row, column) => {
     return row * width + column;
 };
 
-const drawCells = () => {
-    const cellsPtr = universe.cells();
-    const cells = new Uint8Array(memory.buffer, cellsPtr, width * height);
+const drawPixels = () => {
+    const cellsPtr = universe.pixels();
+    const pixels = new Uint8Array(memory.buffer, pixelsPtr, width * height);
 
     ctx.beginPath();
 
@@ -61,9 +61,7 @@ const drawCells = () => {
         for (let col = 0; col < width; col++) {
             const idx = getIndex(row, col);
 
-            ctx.fillStyle = cells[idx] === Cell.Dead
-                ? DEAD_COLOR
-                : ALIVE_COLOR;
+            ctx.fillStyle = "#" + pixels[idx].r.toString(16) + pixels[idx].g.toString(16) + pixels[idx].b.toString(16);
 
             ctx.fillRect(
                 col * (CELL_SIZE + 1) + 1,
@@ -78,5 +76,5 @@ const drawCells = () => {
 };
 
 drawGrid();
-drawCells();
+drawPixels();
 requestAnimationFrame(renderLoop);
