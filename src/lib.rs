@@ -1,6 +1,9 @@
 mod utils;
 
-use std::{cmp, fmt};
+use std::{
+    cmp,
+    fmt::{self, format},
+};
 
 use wasm_bindgen::prelude::*;
 
@@ -29,8 +32,8 @@ impl Color {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct V2 {
-    x: u32,
-    y: u32,
+    x: i32,
+    y: i32,
 }
 
 impl V2 {
@@ -40,13 +43,13 @@ impl V2 {
             y: self.y + other.y,
         }
     }
-    pub fn cmul(&self, other: u32) -> V2 {
+    pub fn cmul(&self, other: i32) -> V2 {
         V2 {
             x: self.x * other,
             y: self.y * other,
         }
     }
-    pub fn cdiv(&self, other: u32) -> V2 {
+    pub fn cdiv(&self, other: i32) -> V2 {
         V2 {
             x: self.x / other,
             y: self.y / other,
@@ -66,10 +69,10 @@ impl V2 {
     }
 }
 
-const RESOLUTION: u32 = 10;
+const RESOLUTION: i32 = 10;
 const MAX_VELOCITY: V2 = V2 {
-    x: 1 * RESOLUTION,
-    y: 1 * RESOLUTION,
+    x: 2 * RESOLUTION,
+    y: 2 * RESOLUTION,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -103,7 +106,14 @@ pub struct Universe {
 
 impl Universe {
     fn get_index(&self, row: u32, column: u32) -> usize {
-        (row * self.width + column) as usize
+        assert!(
+            row <= self.width && column <= self.height,
+            "out of bounds: {},{}",
+            row,
+            column
+        );
+
+        (column * self.height + row) as usize
     }
 }
 
@@ -119,6 +129,40 @@ fn cells_to_pixels(cells: &Vec<Cell>) -> Vec<u32> {
 
 #[wasm_bindgen]
 impl Universe {
+    fn clamp_position(&self, pos: V2, inertia: Inertia) -> (V2, Inertia) {
+        let w = self.width as i32;
+        let h = self.height as i32;
+        let new_pos: V2 = pos.cmul(RESOLUTION).plus(inertia.velocity).cdiv(RESOLUTION);
+        let clamped_pos = V2 {
+            x: match new_pos.x {
+                x if x < 0 => -x,
+                x if x >= w => w - (x - w) - 1,
+                x => x,
+            },
+            y: match new_pos.y {
+                y if y < 0 => -y,
+                y if y >= h => h - (y - h) - 1,
+                y => y,
+            },
+        };
+        let new_velocity = V2 {
+            x: match new_pos.x {
+                x if x < 0 || x >= w => -inertia.velocity.x,
+
+                _ => inertia.velocity.x,
+            },
+            y: match new_pos.y {
+                y if y < 0 || y >= h => -inertia.velocity.y,
+                _ => inertia.velocity.y,
+            },
+        };
+        let clamped_inertia = Inertia {
+            velocity: new_velocity,
+            mass: inertia.mass,
+        };
+        (clamped_pos, clamped_inertia)
+    }
+
     fn apply_forces(&mut self) {
         let mut next = self.cells.clone();
 
@@ -149,21 +193,23 @@ impl Universe {
 
         for x in 0..self.width {
             for y in 0..self.height {
-                let pos = V2 { x, y };
+                let pos = V2 {
+                    x: x as i32,
+                    y: y as i32,
+                };
                 let idx = self.get_index(x, y);
                 let cell = self.cells[idx];
                 match cell {
                     Cell::Empty => {}
-                    Cell::Solid { color: _, inertia } => {
-                        let new_pos: V2 =
-                            pos.cmul(RESOLUTION).plus(inertia.velocity).cdiv(RESOLUTION);
-                        let clamped_pos = V2 {
-                            x: new_pos.x % self.width,
-                            y: new_pos.y % self.height,
-                        };
-                        let new_idx = self.get_index(clamped_pos.x, clamped_pos.y);
+                    Cell::Solid { color, inertia } => {
+                        let (new_pos, new_inertia) = self.clamp_position(pos, inertia);
+                        assert!(new_pos.x >= 0 && new_pos.y >= 0);
+                        let new_idx = self.get_index(new_pos.x as u32, new_pos.y as u32);
                         next[idx] = Cell::Empty;
-                        next[new_idx] = cell;
+                        next[new_idx] = Cell::Solid {
+                            color: color,
+                            inertia: new_inertia,
+                        }
                     }
                 }
             }
@@ -194,7 +240,7 @@ impl Universe {
                             b: 200,
                         },
                         inertia: Inertia {
-                            velocity: V2 { x: i, y: i },
+                            velocity: V2 { x: 10, y: i as i32 },
                             mass: 10,
                         },
                     }
