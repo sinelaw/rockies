@@ -4,6 +4,15 @@ use std::{cmp, fmt};
 
 use wasm_bindgen::prelude::*;
 
+extern crate web_sys;
+
+// A macro to provide `println!(..)`-style syntax for `console.log` logging.
+macro_rules! log {
+    ( $( $t:tt )* ) => {
+        web_sys::console::log_1(&format!( $( $t )* ).into())
+    }
+}
+
 #[wasm_bindgen]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Color {
@@ -20,8 +29,8 @@ impl Color {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct V2 {
-    x: u8,
-    y: u8,
+    x: u32,
+    y: u32,
 }
 
 impl V2 {
@@ -31,7 +40,37 @@ impl V2 {
             y: self.y + other.y,
         }
     }
+    pub fn cmul(&self, other: u32) -> V2 {
+        V2 {
+            x: self.x * other,
+            y: self.y * other,
+        }
+    }
+    pub fn cdiv(&self, other: u32) -> V2 {
+        V2 {
+            x: self.x / other,
+            y: self.y / other,
+        }
+    }
+    pub fn max(self, other: V2) -> V2 {
+        V2 {
+            x: cmp::max(self.x, other.x),
+            y: cmp::max(self.y, other.y),
+        }
+    }
+    pub fn min(self, other: V2) -> V2 {
+        V2 {
+            x: cmp::min(self.x, other.x),
+            y: cmp::min(self.y, other.y),
+        }
+    }
 }
+
+const RESOLUTION: u32 = 10;
+const MAX_VELOCITY: V2 = V2 {
+    x: 1 * RESOLUTION,
+    y: 1 * RESOLUTION,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Inertia {
@@ -42,7 +81,7 @@ pub struct Inertia {
 impl Inertia {
     pub fn accelerate(&self, accel: V2) -> Inertia {
         Inertia {
-            velocity: self.velocity.plus(accel),
+            velocity: self.velocity.plus(accel).min(MAX_VELOCITY),
             mass: self.mass,
         }
     }
@@ -72,7 +111,7 @@ fn cells_to_pixels(cells: &Vec<Cell>) -> Vec<u32> {
     cells
         .iter()
         .map(|cell| match cell {
-            Cell::Empty => 0,
+            Cell::Empty => 0xFFFFFF,
             Cell::Solid { color, inertia: _ } => color.to_u32(),
         })
         .collect()
@@ -95,7 +134,38 @@ impl Universe {
                         inertia: inertia.accelerate(self.gravity),
                     },
                 };
+                /*  match next_cell {
+                    Cell::Empty => {}
+                    c @ Cell::Solid { .. } => log!("Cell[{row},{col}] = {c:?}"),
+                } */
                 next[idx] = next_cell;
+            }
+        }
+        self.cells = next;
+    }
+
+    fn update_positions(&mut self) {
+        let mut next = self.cells.clone();
+
+        for x in 0..self.width {
+            for y in 0..self.height {
+                let pos = V2 { x, y };
+                let idx = self.get_index(x, y);
+                let cell = self.cells[idx];
+                match cell {
+                    Cell::Empty => {}
+                    Cell::Solid { color: _, inertia } => {
+                        let new_pos: V2 =
+                            pos.cmul(RESOLUTION).plus(inertia.velocity).cdiv(RESOLUTION);
+                        let clamped_pos = V2 {
+                            x: new_pos.x % self.width,
+                            y: new_pos.y % self.height,
+                        };
+                        let new_idx = self.get_index(clamped_pos.x, clamped_pos.y);
+                        next[idx] = Cell::Empty;
+                        next[new_idx] = cell;
+                    }
+                }
             }
         }
         self.cells = next;
@@ -103,15 +173,20 @@ impl Universe {
 
     pub fn tick(&mut self) {
         self.apply_forces();
+        self.update_positions();
         self.pixels = cells_to_pixels(&self.cells);
+
+        //log!("{}", self.render());
     }
 
     pub fn new() -> Universe {
+        utils::set_panic_hook();
+
         let width: u32 = 64;
         let height: u32 = 64;
         let cells: Vec<Cell> = (0..width * height)
             .map(|i| {
-                if i % 2 == 0 || i % 7 == 0 {
+                if i == 0 {
                     Cell::Solid {
                         color: Color {
                             r: 200,
@@ -119,10 +194,7 @@ impl Universe {
                             b: 200,
                         },
                         inertia: Inertia {
-                            velocity: V2 {
-                                x: (i % 256) as u8,
-                                y: (i % 256) as u8,
-                            },
+                            velocity: V2 { x: i, y: i },
                             mass: 10,
                         },
                     }
@@ -137,7 +209,7 @@ impl Universe {
             height: height,
             cells: cells,
             pixels: pixels,
-            gravity: V2 { x: 0, y: 10 },
+            gravity: V2 { x: 0, y: 1 },
         }
     }
 

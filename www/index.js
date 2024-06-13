@@ -55,13 +55,16 @@ const drawPixels = () => {
     const pixelsPtr = universe.pixels();
     const pixels = new Uint32Array(memory.buffer, pixelsPtr, width * height);
 
-    ctx.beginPath();
+
 
     for (let row = 0; row < height; row++) {
         for (let col = 0; col < width; col++) {
             const idx = getIndex(row, col);
+            ctx.beginPath();
 
-            ctx.fillStyle = "#" + pixels[idx].toString(16);
+            let val = pixels[idx];
+            ctx.fillStyle = "#" + val.toString(16).padStart(6, "0");
+            //console.log("[%d,%d] = %s = %s", row, col, pixels[idx].toString(16), ctx.fillStyle);
 
             ctx.fillRect(
                 col * (CELL_SIZE + 1) + 1,
@@ -69,10 +72,11 @@ const drawPixels = () => {
                 CELL_SIZE,
                 CELL_SIZE
             );
+
+            ctx.stroke();
         }
     }
 
-    ctx.stroke();
 };
 
 drawGrid();
