@@ -12,6 +12,12 @@ pub struct Color {
     b: u8,
 }
 
+impl Color {
+    pub fn to_u32(&self) -> u32 {
+        (self.r as u32 * 256 * 256) + (self.g as u32 * 256) + self.b as u32
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct V2 {
     x: u8,
@@ -52,7 +58,7 @@ pub struct Universe {
     width: u32,
     height: u32,
     cells: Vec<Cell>,
-    pixels: Vec<Color>,
+    pixels: Vec<u32>,
     gravity: V2,
 }
 
@@ -60,6 +66,16 @@ impl Universe {
     fn get_index(&self, row: u32, column: u32) -> usize {
         (row * self.width + column) as usize
     }
+}
+
+fn cells_to_pixels(cells: &Vec<Cell>) -> Vec<u32> {
+    cells
+        .iter()
+        .map(|cell| match cell {
+            Cell::Empty => 0,
+            Cell::Solid { color, inertia: _ } => color.to_u32(),
+        })
+        .collect()
 }
 
 #[wasm_bindgen]
@@ -87,6 +103,7 @@ impl Universe {
 
     pub fn tick(&mut self) {
         self.apply_forces();
+        self.pixels = cells_to_pixels(&self.cells);
     }
 
     pub fn new() -> Universe {
@@ -102,7 +119,10 @@ impl Universe {
                             b: 200,
                         },
                         inertia: Inertia {
-                            velocity: V2 { x: 0, y: 0 },
+                            velocity: V2 {
+                                x: (i % 256) as u8,
+                                y: (i % 256) as u8,
+                            },
                             mass: 10,
                         },
                     }
@@ -111,16 +131,7 @@ impl Universe {
                 }
             })
             .collect();
-        let pixels = cells
-            .iter()
-            .map(|cell| match cell {
-                Cell::Empty => Color { r: 0, g: 0, b: 0 },
-                Cell::Solid {
-                    color: c,
-                    inertia: _,
-                } => *c,
-            })
-            .collect();
+        let pixels = cells_to_pixels(&cells);
         Universe {
             width: width,
             height: height,
@@ -142,8 +153,8 @@ impl Universe {
         self.height
     }
 
-    pub fn cells(&self) -> *const Cell {
-        self.cells.as_ptr()
+    pub fn pixels(&self) -> *const u32 {
+        self.pixels.as_ptr()
     }
 }
 

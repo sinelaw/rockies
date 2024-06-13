@@ -23,7 +23,7 @@ const renderLoop = () => {
     universe.tick();
 
     drawGrid();
-    drawCells();
+    drawPixels();
 
     requestAnimationFrame(renderLoop);
 };
@@ -52,8 +52,8 @@ const getIndex = (row, column) => {
 };
 
 const drawPixels = () => {
-    const cellsPtr = universe.pixels();
-    const pixels = new Uint8Array(memory.buffer, pixelsPtr, width * height);
+    const pixelsPtr = universe.pixels();
+    const pixels = new Uint32Array(memory.buffer, pixelsPtr, width * height);
 
     ctx.beginPath();
 
@@ -61,7 +61,7 @@ const drawPixels = () => {
         for (let col = 0; col < width; col++) {
             const idx = getIndex(row, col);
 
-            ctx.fillStyle = "#" + pixels[idx].r.toString(16) + pixels[idx].g.toString(16) + pixels[idx].b.toString(16);
+            ctx.fillStyle = "#" + pixels[idx].toString(16);
 
             ctx.fillRect(
                 col * (CELL_SIZE + 1) + 1,
