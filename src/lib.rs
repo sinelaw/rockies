@@ -69,7 +69,7 @@ impl V2 {
     }
 }
 
-const RESOLUTION: u32 = 10;
+const RESOLUTION: u32 = 2;
 const MAX_VELOCITY: V2 = V2 {
     x: 10 * RESOLUTION as i32,
     y: 10 * RESOLUTION as i32,
@@ -142,6 +142,7 @@ impl Universe {
             .cmul(RESOLUTION as i32)
             .plus(inertia.velocity.cmul(self.dt))
             .cdiv(RESOLUTION as i32);
+
         let clamped_pos = V2 {
             x: match new_pos.x {
                 x if x < 0 => -x,
@@ -154,6 +155,17 @@ impl Universe {
                 y => y,
             },
         };
+        // When an object reaches the immovable wall it reverses
+        // the direction inside the time step (e.g. halfway through),
+        // so simply reversing the velocity is wrong. In the first part of the time window,
+        // the object is still moving in the same direction, and in the second part it's reversed.
+        // 1. v + a*dt1
+        // 2. -(v + a*dt1) + a*dt2 = -v + a*(dt2 - dt1)
+        // We can use conservation of energy to correct the final velocity, by keeping
+        // it's direction and adjusting it's magnitude.
+        // Kinetic energy = 1/2 * m * v^2
+        // Potential energy = m * g * h
+
         let new_velocity = V2 {
             x: match new_pos.x {
                 x if x < 0 || x >= w => -inertia.velocity.x,
@@ -244,7 +256,7 @@ impl Universe {
 
         let cells: Vec<Cell> = (0..(width * height * (RESOLUTION * RESOLUTION) as u32))
             .map(|i| {
-                if i == 2000 {
+                if i == 0 {
                     Cell::Solid {
                         color: Color {
                             r: 0,
@@ -252,7 +264,7 @@ impl Universe {
                             b: 0,
                         },
                         inertia: Inertia {
-                            velocity: V2 { x: 10, y: 0 },
+                            velocity: V2 { x: 0, y: 0 },
                             mass: 10,
                         },
                     }
@@ -281,11 +293,11 @@ impl Universe {
     }
 
     pub fn width(&self) -> u32 {
-        self.cells_width
+        self.pixels_width
     }
 
     pub fn height(&self) -> u32 {
-        self.cells_height
+        self.pixels_height
     }
 
     pub fn pixels(&self) -> *const u32 {
@@ -301,6 +313,13 @@ impl fmt::Display for Universe {
                 write!(f, "{}", symbol)?;
             }
             write!(f, "\n")?;
+        }
+
+        for cell in self.cells.iter() {
+            if cell == &Cell::Empty {
+                continue;
+            }
+            write!(f, "{cell:?}\n")?;
         }
 
         return Ok(());
