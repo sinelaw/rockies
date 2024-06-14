@@ -12,7 +12,7 @@ extern crate web_sys;
 // A macro to provide `println!(..)`-style syntax for `console.log` logging.
 macro_rules! log {
     ( $( $t:tt )* ) => {
-           web_sys::console::log_1(&format!( $( $t )* ).into())
+        //       web_sys::console::log_1(&format!( $( $t )* ).into())
     };
 }
 
@@ -69,10 +69,10 @@ impl V2 {
     }
 }
 
-const RESOLUTION: i32 = 10;
+const RESOLUTION: u32 = 10;
 const MAX_VELOCITY: V2 = V2 {
-    x: 10 * RESOLUTION,
-    y: 10 * RESOLUTION,
+    x: 10 * RESOLUTION as i32,
+    y: 10 * RESOLUTION as i32,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -97,8 +97,10 @@ pub enum Cell {
 
 #[wasm_bindgen]
 pub struct Universe {
-    width: u32,
-    height: u32,
+    cells_width: u32,
+    cells_height: u32,
+    pixels_width: u32,
+    pixels_height: u32,
     cells: Vec<Cell>,
     pixels: Vec<u32>,
     gravity: V2,
@@ -106,8 +108,8 @@ pub struct Universe {
 }
 
 impl Universe {
-    fn cell_index(&self, row: u32, column: u32) -> usize {
-        (column * self.height + row) as usize
+    fn cell_index(&self, x: u32, y: u32) -> usize {
+        (y * self.cells_width + x) as usize
     }
 }
 
@@ -115,17 +117,17 @@ impl Universe {
 impl Universe {
     fn render(&mut self) -> () {
         self.pixels.fill(0xFFFFFF);
-        for row in 0..(self.height * (RESOLUTION as u32)) {
-            for col in 0..(self.width * (RESOLUTION as u32)) {
-                let idx = self.cell_index(row, col);
+        for cell_y in 0..self.cells_height {
+            for cell_x in 0..self.cells_width {
+                let idx = self.cell_index(cell_x, cell_y);
                 let cell = self.cells[idx];
 
                 match cell {
                     Cell::Empty => (),
                     Cell::Solid { color, inertia: _ } => {
-                        let y = col / (RESOLUTION as u32);
-                        let x = row / (RESOLUTION as u32);
-                        let pixel_idx = (y * self.height + x) as usize;
+                        let x = cell_x / (RESOLUTION as u32);
+                        let y = cell_y / (RESOLUTION as u32);
+                        let pixel_idx = (y * self.pixels_width + x) as usize;
                         self.pixels[pixel_idx] = color.to_u32()
                     }
                 };
@@ -134,12 +136,12 @@ impl Universe {
     }
 
     fn clamp_position(&self, pos: V2, inertia: Inertia) -> (V2, Inertia) {
-        let w = self.width as i32;
-        let h = self.height as i32;
+        let w = self.cells_width as i32;
+        let h = self.cells_height as i32;
         let new_pos: V2 = pos
-            .cmul(RESOLUTION)
+            .cmul(RESOLUTION as i32)
             .plus(inertia.velocity.cmul(self.dt))
-            .cdiv(RESOLUTION);
+            .cdiv(RESOLUTION as i32);
         let clamped_pos = V2 {
             x: match new_pos.x {
                 x if x < 0 => -x,
@@ -174,9 +176,9 @@ impl Universe {
     fn apply_forces(&mut self) {
         let mut next = self.cells.clone();
 
-        for row in 0..self.height {
-            for col in 0..self.width {
-                let idx = self.cell_index(row, col);
+        for cell_y in 0..self.cells_height {
+            for cell_x in 0..self.cells_width {
+                let idx = self.cell_index(cell_x, cell_y);
                 let cell = self.cells[idx];
                 let next_cell = match cell {
                     Cell::Empty => cell,
@@ -203,8 +205,8 @@ impl Universe {
     fn update_positions(&mut self) {
         let mut next = self.cells.clone();
 
-        for x in 0..self.width {
-            for y in 0..self.height {
+        for x in 0..self.cells_width {
+            for y in 0..self.cells_height {
                 let pos = V2 {
                     x: x as i32,
                     y: y as i32,
@@ -237,14 +239,12 @@ impl Universe {
         //log!("{}", self.render());
     }
 
-    pub fn new() -> Universe {
+    pub fn new(width: u32, height: u32) -> Universe {
         utils::set_panic_hook();
 
-        let width: u32 = 64;
-        let height: u32 = 64;
         let cells: Vec<Cell> = (0..(width * height * (RESOLUTION * RESOLUTION) as u32))
             .map(|i| {
-                if i == 1000 {
+                if i == 2000 {
                     Cell::Solid {
                         color: Color {
                             r: 0,
@@ -252,10 +252,7 @@ impl Universe {
                             b: 0,
                         },
                         inertia: Inertia {
-                            velocity: V2 {
-                                x: 0, //i as i32 % (2 * MAX_VELOCITY.x),
-                                y: 0,
-                            },
+                            velocity: V2 { x: 10, y: 0 },
                             mass: 10,
                         },
                     }
@@ -268,8 +265,10 @@ impl Universe {
         let mut pixels = Vec::with_capacity((width * height) as usize);
         pixels.resize((width * height) as usize, 0xFFFFFF);
         Universe {
-            width: width,
-            height: height,
+            cells_width: width * RESOLUTION,
+            cells_height: height * RESOLUTION,
+            pixels_width: width,
+            pixels_height: height,
             cells: cells,
             pixels: pixels,
             gravity: V2 { x: 0, y: 1 },
@@ -282,11 +281,11 @@ impl Universe {
     }
 
     pub fn width(&self) -> u32 {
-        self.width
+        self.cells_width
     }
 
     pub fn height(&self) -> u32 {
-        self.height
+        self.cells_height
     }
 
     pub fn pixels(&self) -> *const u32 {
@@ -296,9 +295,9 @@ impl Universe {
 
 impl fmt::Display for Universe {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for line in self.cells.as_slice().chunks(self.width as usize) {
-            for &cell in line {
-                let symbol = if cell == Cell::Empty { '◻' } else { '◼' };
+        for line in self.pixels.as_slice().chunks(self.pixels_width as usize) {
+            for &pixel in line {
+                let symbol = if pixel == 0xFFFFFF { '◻' } else { '◼' };
                 write!(f, "{}", symbol)?;
             }
             write!(f, "\n")?;
