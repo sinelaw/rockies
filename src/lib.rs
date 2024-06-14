@@ -43,6 +43,12 @@ impl V2 {
             y: self.y + other.y,
         }
     }
+    pub fn minus(&self, other: V2) -> V2 {
+        V2 {
+            x: self.x - other.x,
+            y: self.y - other.y,
+        }
+    }
     pub fn cmul(&self, other: i32) -> V2 {
         V2 {
             x: self.x * other,
@@ -161,11 +167,8 @@ impl Universe {
         // the object is still moving in the same direction, and in the second part it's reversed.
         // 1. v + a*dt1
         // 2. -(v + a*dt1) + a*dt2 = -v + a*(dt2 - dt1)
-        // We can use conservation of energy to correct the final velocity, by keeping
-        // it's direction and adjusting it's magnitude.
-        // Kinetic energy = 1/2 * m * v^2
-        // Potential energy = m * g * h
-
+        // In the most extreme cases, final velocity is either: -v - a*dt or -v + a*dt
+        // If we just ignore the acceleration instead we get an inaccurate result, but it conserves energy.
         let new_velocity = V2 {
             x: match new_pos.x {
                 x if x < 0 || x >= w => -inertia.velocity.x,
@@ -178,8 +181,9 @@ impl Universe {
                 _ => inertia.velocity.y,
             },
         };
+        let corrected_velocity = new_velocity.minus(self.gravity.cmul(self.dt));
         let clamped_inertia = Inertia {
-            velocity: new_velocity,
+            velocity: corrected_velocity,
             mass: inertia.mass,
         };
         (clamped_pos, clamped_inertia)
