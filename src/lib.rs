@@ -69,10 +69,10 @@ impl V2 {
     }
 }
 
-const RESOLUTION: i32 = 10;
+const RESOLUTION: i32 = 100;
 const MAX_VELOCITY: V2 = V2 {
-    x: 2 * RESOLUTION,
-    y: 2 * RESOLUTION,
+    x: 1 * RESOLUTION,
+    y: 1 * RESOLUTION,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -102,6 +102,7 @@ pub struct Universe {
     cells: Vec<Cell>,
     pixels: Vec<u32>,
     gravity: V2,
+    dt: i32,
 }
 
 impl Universe {
@@ -132,7 +133,10 @@ impl Universe {
     fn clamp_position(&self, pos: V2, inertia: Inertia) -> (V2, Inertia) {
         let w = self.width as i32;
         let h = self.height as i32;
-        let new_pos: V2 = pos.cmul(RESOLUTION).plus(inertia.velocity).cdiv(RESOLUTION);
+        let new_pos: V2 = pos
+            .cmul(RESOLUTION)
+            .plus(inertia.velocity.cmul(self.dt))
+            .cdiv(RESOLUTION);
         let clamped_pos = V2 {
             x: match new_pos.x {
                 x if x < 0 => -x,
@@ -151,6 +155,7 @@ impl Universe {
 
                 _ => inertia.velocity.x,
             },
+
             y: match new_pos.y {
                 y if y < 0 || y >= h => -inertia.velocity.y,
                 _ => inertia.velocity.y,
@@ -175,9 +180,13 @@ impl Universe {
 
                     Cell::Solid { color, inertia } => Cell::Solid {
                         color,
-                        inertia: inertia.accelerate(self.gravity),
+                        inertia: {
+                            log!("{inertia:?}, pos: {row},{col}");
+                            inertia.accelerate(self.gravity.cmul(self.dt))
+                        },
                     },
                 };
+
                 /*  match next_cell {
                     Cell::Empty => {}
                     c @ Cell::Solid { .. } => log!("Cell[{row},{col}] = {c:?}"),
@@ -205,7 +214,7 @@ impl Universe {
                         let (new_pos, new_inertia) = self.clamp_position(pos, inertia);
                         assert!(new_pos.x >= 0 && new_pos.y >= 0);
                         let new_idx = self.get_index(new_pos.x as u32, new_pos.y as u32);
-                        next[idx] = Cell::Empty;
+                        next[idx] = self.cells[new_idx];
                         next[new_idx] = Cell::Solid {
                             color: color,
                             inertia: new_inertia,
@@ -232,15 +241,18 @@ impl Universe {
         let height: u32 = 64;
         let cells: Vec<Cell> = (0..width * height)
             .map(|i| {
-                if i == 0 {
+                if i == 1000 {
                     Cell::Solid {
                         color: Color {
-                            r: 200,
+                            r: 0,
                             g: cmp::min(u8::MAX, i as u8),
-                            b: 200,
+                            b: 0,
                         },
                         inertia: Inertia {
-                            velocity: V2 { x: 10, y: i as i32 },
+                            velocity: V2 {
+                                x: 0, //i as i32 % (2 * MAX_VELOCITY.x),
+                                y: 0,
+                            },
                             mass: 10,
                         },
                     }
@@ -256,6 +268,7 @@ impl Universe {
             cells: cells,
             pixels: pixels,
             gravity: V2 { x: 0, y: 1 },
+            dt: 1,
         }
     }
 
