@@ -79,6 +79,12 @@ const drawPixels = () => {
 
 };
 
+
+
 drawGrid();
 drawPixels();
 requestAnimationFrame(renderLoop);
+
+canvas.onclick = (e) => {
+    //  renderLoop();
+};

@@ -2,7 +2,7 @@ mod utils;
 
 use std::{
     cmp,
-    fmt::{self, format},
+    fmt::{self},
 };
 
 use wasm_bindgen::prelude::*;
@@ -12,8 +12,8 @@ extern crate web_sys;
 // A macro to provide `println!(..)`-style syntax for `console.log` logging.
 macro_rules! log {
     ( $( $t:tt )* ) => {
-        web_sys::console::log_1(&format!( $( $t )* ).into())
-    }
+           web_sys::console::log_1(&format!( $( $t )* ).into())
+    };
 }
 
 #[wasm_bindgen]
@@ -69,10 +69,10 @@ impl V2 {
     }
 }
 
-const RESOLUTION: i32 = 100;
+const RESOLUTION: i32 = 10;
 const MAX_VELOCITY: V2 = V2 {
-    x: 1 * RESOLUTION,
-    y: 1 * RESOLUTION,
+    x: 10 * RESOLUTION,
+    y: 10 * RESOLUTION,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -106,30 +106,33 @@ pub struct Universe {
 }
 
 impl Universe {
-    fn get_index(&self, row: u32, column: u32) -> usize {
-        assert!(
-            row <= self.width && column <= self.height,
-            "out of bounds: {},{}",
-            row,
-            column
-        );
-
+    fn cell_index(&self, row: u32, column: u32) -> usize {
         (column * self.height + row) as usize
     }
 }
 
-fn cells_to_pixels(cells: &Vec<Cell>) -> Vec<u32> {
-    cells
-        .iter()
-        .map(|cell| match cell {
-            Cell::Empty => 0xFFFFFF,
-            Cell::Solid { color, inertia: _ } => color.to_u32(),
-        })
-        .collect()
-}
-
 #[wasm_bindgen]
 impl Universe {
+    fn render(&mut self) -> () {
+        self.pixels.fill(0xFFFFFF);
+        for row in 0..(self.height * (RESOLUTION as u32)) {
+            for col in 0..(self.width * (RESOLUTION as u32)) {
+                let idx = self.cell_index(row, col);
+                let cell = self.cells[idx];
+
+                match cell {
+                    Cell::Empty => (),
+                    Cell::Solid { color, inertia: _ } => {
+                        let y = col / (RESOLUTION as u32);
+                        let x = row / (RESOLUTION as u32);
+                        let pixel_idx = (y * self.height + x) as usize;
+                        self.pixels[pixel_idx] = color.to_u32()
+                    }
+                };
+            }
+        }
+    }
+
     fn clamp_position(&self, pos: V2, inertia: Inertia) -> (V2, Inertia) {
         let w = self.width as i32;
         let h = self.height as i32;
@@ -173,7 +176,7 @@ impl Universe {
 
         for row in 0..self.height {
             for col in 0..self.width {
-                let idx = self.get_index(row, col);
+                let idx = self.cell_index(row, col);
                 let cell = self.cells[idx];
                 let next_cell = match cell {
                     Cell::Empty => cell,
@@ -206,14 +209,14 @@ impl Universe {
                     x: x as i32,
                     y: y as i32,
                 };
-                let idx = self.get_index(x, y);
+                let idx = self.cell_index(x, y);
                 let cell = self.cells[idx];
                 match cell {
                     Cell::Empty => {}
                     Cell::Solid { color, inertia } => {
                         let (new_pos, new_inertia) = self.clamp_position(pos, inertia);
                         assert!(new_pos.x >= 0 && new_pos.y >= 0);
-                        let new_idx = self.get_index(new_pos.x as u32, new_pos.y as u32);
+                        let new_idx = self.cell_index(new_pos.x as u32, new_pos.y as u32);
                         next[idx] = self.cells[new_idx];
                         next[new_idx] = Cell::Solid {
                             color: color,
@@ -229,7 +232,7 @@ impl Universe {
     pub fn tick(&mut self) {
         self.apply_forces();
         self.update_positions();
-        self.pixels = cells_to_pixels(&self.cells);
+        self.render();
 
         //log!("{}", self.render());
     }
@@ -239,7 +242,7 @@ impl Universe {
 
         let width: u32 = 64;
         let height: u32 = 64;
-        let cells: Vec<Cell> = (0..width * height)
+        let cells: Vec<Cell> = (0..(width * height * (RESOLUTION * RESOLUTION) as u32))
             .map(|i| {
                 if i == 1000 {
                     Cell::Solid {
@@ -261,7 +264,9 @@ impl Universe {
                 }
             })
             .collect();
-        let pixels = cells_to_pixels(&cells);
+
+        let mut pixels = Vec::with_capacity((width * height) as usize);
+        pixels.resize((width * height) as usize, 0xFFFFFF);
         Universe {
             width: width,
             height: height,
@@ -272,7 +277,7 @@ impl Universe {
         }
     }
 
-    pub fn render(&self) -> String {
+    pub fn text_render(&self) -> String {
         self.to_string()
     }
 
