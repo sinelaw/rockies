@@ -1,8 +1,10 @@
+mod grid;
 mod utils;
 mod v2;
 
 use std::{collections::HashSet, fmt};
 
+use grid::Grid;
 use v2::V2;
 use wasm_bindgen::prelude::*;
 
@@ -49,10 +51,20 @@ pub struct Universe {
     pixels_width: u32,
     pixels_height: u32,
     cells: Vec<Cell>,
-
     pixels: Vec<u32>,
     gravity: V2,
     dt: f64,
+}
+
+fn inverse_mass(cell: Cell) -> f64 {
+    if cell.inertia.mass == 0 {
+        return 0.0;
+    }
+    return 1.0 / (cell.inertia.mass as f64);
+}
+
+fn round(x: f64) -> i32 {
+    (x + 0.5) as i32
 }
 
 #[wasm_bindgen]
@@ -107,10 +119,19 @@ impl Universe {
     }
 
     fn collect_collisions(&mut self) -> HashSet<(usize, usize)> {
+        let mut grid: Grid<(usize, &Cell)> =
+            Grid::new(self.pixels_width as usize, self.pixels_height as usize);
+        for c @ (_, cell) in self.cells.iter().enumerate() {
+            grid.put(cell.inertia.pos.x as usize, cell.inertia.pos.y as usize, c);
+        }
+
         let mut collisions: HashSet<(usize, usize)> = HashSet::new();
         for (cell1_idx, cell1) in self.cells.iter().enumerate() {
-            for (cell2_idx, cell2) in self.cells.iter().enumerate() {
-                if cell1_idx == cell2_idx {
+            for (cell2_idx, cell2) in grid
+                .get(cell1.inertia.pos.x as usize, cell1.inertia.pos.y as usize)
+                .iter()
+            {
+                if cell1_idx == *cell2_idx {
                     continue;
                 }
                 // collision between infinite masses?!
@@ -118,15 +139,15 @@ impl Universe {
                     continue;
                 }
 
-                let norm = cell1.inertia.pos.minus(cell2.inertia.pos);
-                if norm.magnitude() > 1.0 {
+                let normal = cell1.inertia.pos.minus(cell2.inertia.pos);
+                let radius = 1.0; // they're actually boxes but ok
+                if normal.magnitude() > radius {
                     continue;
                 }
 
                 let rel_velocity = cell1.inertia.velocity.minus(cell2.inertia.velocity);
-
                 // if the dot product is negative, the two objects are colliding,
-                let dot = rel_velocity.dot(norm);
+                let dot = rel_velocity.dot(normal);
                 if dot > 0.0 {
                     // moving away from each other
                     continue;
@@ -135,11 +156,11 @@ impl Universe {
                     // negligible velocity (floating point error)
                     continue;
                 }
-                let key = (cell1_idx.min(cell2_idx), cell1_idx.max(cell2_idx));
+                let key = (cell1_idx.min(*cell2_idx), cell1_idx.max(*cell2_idx));
 
                 collisions.insert(key);
 
-                log!("collision: {key:?} {norm:?} {dot:?}");
+                log!("collision: {key:?} {normal:?} {dot:?}");
                 log!("cell1: {cell1:?}");
                 log!("cell2: {cell2:?}");
 
@@ -161,43 +182,51 @@ impl Universe {
             }
 
             let rel_velocity = cell1.inertia.velocity.minus(cell2.inertia.velocity);
-            let norm = cell1.inertia.pos.minus(cell2.inertia.pos);
+            let normal = cell1.inertia.pos.minus(cell2.inertia.pos);
             // coefficient of restitution
             let e = 0.99;
-            let collision_vel: f64 = rel_velocity.dot(norm) as f64 * -(1.0 + e);
+            let collision_vel: f64 = rel_velocity.dot(normal) as f64 * -(1.0 + e);
 
-            let pos_correct = norm.cmul(0.0); //.1);
+            // for simplicity the rest here treats them as circles, not boxes:
+            let distance = normal.magnitude();
 
-            if cell1.inertia.mass == 0 {
-                // cell1 = infinite mass, cell2 = finite mass
-                let cell = &mut self.cells[cell2_idx];
-                cell.inertia.velocity = cell2.inertia.velocity.minus(norm.cmul(collision_vel));
-                cell.inertia.pos = cell2.inertia.pos.minus(pos_correct);
-            } else if cell2.inertia.mass == 0 {
-                // cell1 = finite mass, cell2 = infinite mass
-                let cell = &mut self.cells[cell1_idx];
-                cell.inertia.velocity = cell1.inertia.velocity.plus(norm.cmul(collision_vel));
-                cell.inertia.pos = cell1.inertia.pos.plus(pos_correct);
+            let normal_direction = if distance == 0.0 {
+                // the two are perfectly aligned on top of each other
+                V2 { x: 1.0, y: 0.0 }
             } else {
-                // both finite masses
-                let im1 = 1.0 / (cell1.inertia.mass as f64);
-                let im2 = 1.0 / (cell2.inertia.mass as f64);
-                let impulse = collision_vel / (im1 + im2);
+                normal.cdiv(distance)
+            };
 
-                {
-                    let cell = &mut self.cells[cell1_idx];
-                    cell.inertia.velocity = cell1.inertia.velocity.plus(norm.cmul(impulse * im1));
-                    cell.inertia.pos = cell1.inertia.pos.plus(pos_correct);
-                }
-                {
-                    let cell = &mut self.cells[cell2_idx];
-                    cell.inertia.velocity = cell2.inertia.velocity.minus(norm.cmul(impulse * im2));
-                    cell.inertia.pos = cell2.inertia.pos.minus(pos_correct);
-                }
+            let im1 = inverse_mass(cell1);
+            let im2 = inverse_mass(cell2);
+
+            let penetration = distance - 1.0; // 1.0 = "radius"
+            let slop = 0.02;
+            let pos_correct = normal_direction
+                .cmul((penetration - slop) / (im1 + im2))
+                .cmul(0.2);
+
+            let impulse = collision_vel / (im1 + im2);
+
+            {
+                let cell = &mut self.cells[cell1_idx];
+                cell.inertia.velocity = cell1
+                    .inertia
+                    .velocity
+                    .plus(normal_direction.cmul(impulse * im1));
+                cell.inertia.pos = cell1.inertia.pos.plus(pos_correct.cmul(im1));
+            }
+            {
+                let cell = &mut self.cells[cell2_idx];
+                cell.inertia.velocity = cell2
+                    .inertia
+                    .velocity
+                    .minus(normal_direction.cmul(impulse * im2));
+                cell.inertia.pos = cell2.inertia.pos.minus(pos_correct.cmul(im2));
             }
 
             log!("rel_velocity: {rel_velocity:?}");
-            log!("norm: {norm:?}");
+            log!("norm: {normal:?}");
             log!("collision_vel: {collision_vel:?}");
             log!("pos_correct: {pos_correct:?}");
 
@@ -240,6 +269,25 @@ impl Universe {
         }
     }
 
+    pub fn click(&mut self, x: u32, y: u32) {
+        self.add_cell(Cell {
+            color: Color {
+                r: ((10 * x) % 255) as u8,
+                g: 150,
+                b: ((155 * y) % 255) as u8,
+            },
+            inertia: Inertia {
+                velocity: V2 { x: 0.0, y: 0.0 },
+                force: V2 { x: 0.0, y: 0.0 },
+                pos: V2 {
+                    x: x as f64,
+                    y: y as f64,
+                },
+                mass: 1,
+            },
+        });
+    }
+
     pub fn new(width: u32, height: u32) -> Universe {
         utils::set_panic_hook();
 
@@ -253,27 +301,9 @@ impl Universe {
                 pixels
             },
             gravity: V2 { x: 0.0, y: 1.0 },
-            dt: 0.1,
+            dt: 0.01,
         };
 
-        for i in 0..1 as u32 {
-            uni.add_cell(Cell {
-                color: Color {
-                    r: ((10 * i) % 255) as u8,
-                    g: 150,
-                    b: ((155 * i) % 255) as u8,
-                },
-                inertia: Inertia {
-                    velocity: V2 { x: 1.0, y: 0.0 },
-                    force: V2 { x: 0.0, y: 0.0 },
-                    pos: V2 {
-                        x: 5.0,
-                        y: height as f64 - 2.0, //,height as f64 - (10.0 + i as f64 / width as f64),
-                    },
-                    mass: 1,
-                },
-            });
-        }
         for x in width / 4..(3 * width / 4) {
             uni.add_cell(uni.wall_cell(x as f64, (height / 2) as f64));
         }
@@ -292,10 +322,10 @@ impl Universe {
     fn render(&mut self) -> () {
         self.pixels.fill(0xFFFFFF);
         for cell in &self.cells {
-            let x = cell.inertia.pos.x;
-            let y = cell.inertia.pos.y;
+            let x = round(cell.inertia.pos.x);
+            let y = round(cell.inertia.pos.y);
             // out of the screen bounds
-            if x < 0.0 || x >= self.pixels_width as f64 || y < 0.0 || y >= self.pixels_height as f64
+            if x < 0 || x >= (self.pixels_width as i32) || y < 0 || y >= (self.pixels_height as i32)
             {
                 continue;
             }

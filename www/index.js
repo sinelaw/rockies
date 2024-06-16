@@ -85,6 +85,7 @@ drawGrid();
 drawPixels();
 requestAnimationFrame(renderLoop);
 
-canvas.onclick = (e) => {
-    //  renderLoop();
+canvas.onmousemove = (e) => {
+    universe.click(e.offsetX / (CELL_SIZE + 1), e.offsetY / (CELL_SIZE + 1));
+
 };

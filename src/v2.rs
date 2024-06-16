@@ -48,3 +48,53 @@ impl V2 {
         self.x * other.x + self.y * other.y
     }
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_v2_magnitude() {
+        let v = V2 { x: 3.0, y: 4.0 };
+        assert_eq!(v.magnitude(), 5.0);
+    }
+
+    #[test]
+    fn test_v2_min() {
+        let v1 = V2 { x: 3.0, y: 4.0 };
+        let v2 = V2 { x: 1.0, y: 2.0 };
+        assert_eq!(v1.min(v2), V2 { x: 1.0, y: 2.0 });
+    }
+
+    #[test]
+    fn test_v2_plus() {
+        let v1 = V2 { x: 3.0, y: 4.0 };
+        let v2 = V2 { x: 1.0, y: 2.0 };
+        assert_eq!(v1.plus(v2), V2 { x: 4.0, y: 6.0 });
+    }
+
+    #[test]
+    fn test_v2_minus() {
+        let v1 = V2 { x: 3.0, y: 4.0 };
+        let v2 = V2 { x: 1.0, y: 2.0 };
+        assert_eq!(v1.minus(v2), V2 { x: 2.0, y: 2.0 });
+    }
+
+    #[test]
+    fn test_v2_cmul() {
+        let v = V2 { x: 3.0, y: 4.0 };
+        assert_eq!(v.cmul(2.0), V2 { x: 6.0, y: 8.0 });
+    }
+
+    #[test]
+    fn test_v2_cdiv() {
+        let v = V2 { x: 6.0, y: 8.0 };
+        assert_eq!(v.cdiv(2.0), V2 { x: 3.0, y: 4.0 });
+    }
+
+    #[test]
+    fn test_v2_dot() {
+        let v1 = V2 { x: 3.0, y: 4.0 };
+        let v2 = V2 { x: 1.0, y: 2.0 };
+        assert_eq!(v1.dot(v2), 11.0);
+    }
+}
