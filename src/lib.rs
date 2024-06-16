@@ -54,6 +54,7 @@ pub struct Universe {
     pixels_width: u32,
     pixels_height: u32,
     cells: Vec<Cell>,
+
     grid: Grid<usize>,
     pixels: Vec<u32>,
     gravity: V2,
@@ -69,6 +70,13 @@ fn inverse_mass(cell: Cell) -> f64 {
 
 fn round(x: f64) -> i32 {
     (x + 0.5) as i32
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Collision {
+    Unknown,
+    Collision,
+    NoCollision,
 }
 
 #[wasm_bindgen]
@@ -146,8 +154,10 @@ impl Universe {
             && pos.y < self.pixels_height as f64
     }
 
-    fn collect_collisions(&mut self) -> FnvHashSet<(usize, usize)> {
-        let mut collisions: FnvHashSet<(usize, usize)> = FnvHashSet::default();
+    fn collect_collisions(&mut self) -> Vec<(usize, usize)> {
+        let mut collisions_list: Vec<(usize, usize)> = Vec::new();
+        let mut collisions: Vec<Collision> = Vec::new();
+        collisions.resize(self.cells.len() * self.cells.len(), Collision::Unknown);
 
         for (cell1_idx, cell1) in self.cells.iter().enumerate() {
             if !self.is_in_bounds(cell1.inertia.pos) {
@@ -163,24 +173,36 @@ impl Universe {
                             continue;
                         }
 
+                        if collisions[cell1_idx * self.cells.len() + *cell2_idx]
+                            != Collision::Unknown
+                        {
+                            continue;
+                        }
+
+                        collisions[cell1_idx * self.cells.len() + *cell2_idx] =
+                            Collision::NoCollision;
+                        collisions[*cell2_idx * self.cells.len() + cell1_idx] =
+                            Collision::NoCollision;
+
                         let cell2 = &self.cells[*cell2_idx];
                         // collision between infinite masses?!
                         if (cell1.inertia.mass == 0) && (cell2.inertia.mass == 0) {
                             continue;
                         }
 
-                        let key = (cell1_idx.min(*cell2_idx), cell1_idx.max(*cell2_idx));
-                        if collisions.contains(&key) {
-                            continue;
-                        }
-
                         let normal = cell1.inertia.pos.minus(cell2.inertia.pos);
                         let radius = 1.0; // they're actually boxes but ok
-                        if normal.magnitude() > radius {
+                        if normal.magnitude_sqr() > radius * radius {
                             continue;
                         }
 
                         let rel_velocity = cell1.inertia.velocity.minus(cell2.inertia.velocity);
+
+                        // skip objects that have negligible relative velocity
+                        if rel_velocity.magnitude_sqr() < 0.001 {
+                            continue;
+                        }
+
                         // if the dot product is negative, the two objects are colliding,
                         let dot = rel_velocity.dot(normal);
                         if dot > 0.0 {
@@ -191,7 +213,13 @@ impl Universe {
                             // negligible velocity (floating point error)
                             continue;
                         }
-                        collisions.insert(key);
+
+                        collisions[cell1_idx * self.cells.len() + *cell2_idx] =
+                            Collision::Collision;
+                        collisions[*cell2_idx * self.cells.len() + cell1_idx] =
+                            Collision::Collision;
+
+                        collisions_list.push((cell1_idx, *cell2_idx));
 
                         log!("collision: {key:?} {normal:?} {dot:?}");
                         log!("cell1: {cell1:?}");
@@ -202,7 +230,7 @@ impl Universe {
                 }
             }
         }
-        collisions
+        collisions_list
     }
 
     fn calc_collisions(&mut self) {
