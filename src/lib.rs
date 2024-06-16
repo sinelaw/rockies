@@ -350,7 +350,7 @@ impl Universe {
                 pixels.resize((width * height) as usize, 0xFFFFFF);
                 pixels
             },
-            gravity: V2 { x: 0.0, y: 1.0 },
+            gravity: V2 { x: 0.0, y: 0.1 },
             dt: 0.01,
         };
 
