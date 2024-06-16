@@ -12,7 +12,7 @@ extern crate web_sys;
 macro_rules! log {
     ( $( $t:tt )* ) => {
         //             web_sys::console::log_1(&format!( $( $t )* ).into())
-        //      println!( $( $t )* );
+             println!( $( $t )* );
     };
 }
 
@@ -77,9 +77,17 @@ impl Universe {
         }
     }
 
+    fn log_cells(&self) {
+        for cell in &self.cells {
+            if cell.inertia.mass == 0 {
+                continue;
+            }
+            log!("cell: {cell:?}");
+        }
+    }
+
     fn update_vel(&mut self) {
         for cell in &mut self.cells {
-            log!("cell: {cell:?}");
             if cell.inertia.mass > 0 {
                 cell.inertia.velocity = cell
                     .inertia
@@ -147,27 +155,30 @@ impl Universe {
             let cell2 = self.cells[cell2_idx];
             let cell1 = self.cells[cell1_idx];
 
+            // collision between infinite masses?!
+            if (cell1.inertia.mass == 0) && (cell2.inertia.mass == 0) {
+                continue;
+            }
+
             let rel_velocity = cell1.inertia.velocity.minus(cell2.inertia.velocity);
             let norm = cell1.inertia.pos.minus(cell2.inertia.pos);
             // coefficient of restitution
             let e = 0.99;
             let collision_vel: f64 = rel_velocity.dot(norm) as f64 * -(1.0 + e);
 
-            // collision between infinite masses?!
-            if (cell1.inertia.mass == 0) && (cell2.inertia.mass == 0) {
-                continue;
-            }
+            let pos_correct = norm.cmul(0.0); //.1);
+
             if cell1.inertia.mass == 0 {
                 // cell1 = infinite mass, cell2 = finite mass
                 let cell = &mut self.cells[cell2_idx];
-                cell.inertia.velocity = cell2.inertia.velocity.plus(norm.cmul(collision_vel));
-            }
-            if cell2.inertia.mass == 0 {
+                cell.inertia.velocity = cell2.inertia.velocity.minus(norm.cmul(collision_vel));
+                cell.inertia.pos = cell2.inertia.pos.minus(pos_correct);
+            } else if cell2.inertia.mass == 0 {
                 // cell1 = finite mass, cell2 = infinite mass
                 let cell = &mut self.cells[cell1_idx];
                 cell.inertia.velocity = cell1.inertia.velocity.plus(norm.cmul(collision_vel));
-            }
-            if (cell1.inertia.mass != 0) && (cell2.inertia.mass != 0) {
+                cell.inertia.pos = cell1.inertia.pos.plus(pos_correct);
+            } else {
                 // both finite masses
                 let im1 = 1.0 / (cell1.inertia.mass as f64);
                 let im2 = 1.0 / (cell2.inertia.mass as f64);
@@ -176,17 +187,32 @@ impl Universe {
                 {
                     let cell = &mut self.cells[cell1_idx];
                     cell.inertia.velocity = cell1.inertia.velocity.plus(norm.cmul(impulse * im1));
+                    cell.inertia.pos = cell1.inertia.pos.plus(pos_correct);
                 }
                 {
                     let cell = &mut self.cells[cell2_idx];
                     cell.inertia.velocity = cell2.inertia.velocity.minus(norm.cmul(impulse * im2));
+                    cell.inertia.pos = cell2.inertia.pos.minus(pos_correct);
                 }
             }
+
+            log!("rel_velocity: {rel_velocity:?}");
+            log!("norm: {norm:?}");
+            log!("collision_vel: {collision_vel:?}");
+            log!("pos_correct: {pos_correct:?}");
+
+            log!("cell1: {cell1:?}");
+            log!("cell2: {cell2:?}");
         }
     }
 
     pub fn tick(&mut self) {
-        for _ in 0..((1.0 / self.dt) as usize) {
+        self.render();
+
+        for _ in 0..1 {
+            //((1.0 / self.dt) as usize) {
+            self.log_cells();
+
             self.calc_forces();
             self.update_vel();
 
@@ -194,8 +220,6 @@ impl Universe {
             self.update_pos();
             self.zero_forces();
         }
-
-        self.render();
 
         //log!("{}", self.render());
     }
@@ -229,10 +253,10 @@ impl Universe {
                 pixels
             },
             gravity: V2 { x: 0.0, y: 1.0 },
-            dt: 0.01,
+            dt: 0.1,
         };
 
-        for i in 0..100 as u32 {
+        for i in 0..1 as u32 {
             uni.add_cell(Cell {
                 color: Color {
                     r: ((10 * i) % 255) as u8,
@@ -243,8 +267,8 @@ impl Universe {
                     velocity: V2 { x: 1.0, y: 0.0 },
                     force: V2 { x: 0.0, y: 0.0 },
                     pos: V2 {
-                        x: (1 + i % (width - 2)) as f64,
-                        y: (10.0 + i as f64 / width as f64),
+                        x: 5.0,
+                        y: height as f64 - 2.0, //,height as f64 - (10.0 + i as f64 / width as f64),
                     },
                     mass: 1,
                 },

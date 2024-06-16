@@ -5,6 +5,6 @@ fn main() -> () {
     loop {
         uni.tick();
         println!("{}\n\n", uni.text_render());
-        std::thread::sleep(std::time::Duration::from_millis(100));
+        std::thread::sleep(std::time::Duration::from_millis(1000));
     }
 }
