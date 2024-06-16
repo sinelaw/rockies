@@ -8,7 +8,7 @@ fn main() -> () {
         }
     }
 
-    for _ in 0..1000 {
+    for _ in 0..500 {
         uni.tick();
         //println!("{}\n\n", uni.text_render());
         //std::thread::sleep(std::time::Duration::from_millis(10));

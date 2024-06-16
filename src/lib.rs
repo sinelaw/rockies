@@ -158,9 +158,9 @@ impl Universe {
             let neighbors = self
                 .grid
                 .get(cell1.inertia.pos.x as usize, cell1.inertia.pos.y as usize);
-            for ns in neighbors.iter() {
-                for ns2 in ns.iter() {
-                    for cell2_idx in ns2.iter() {
+            for ns in neighbors {
+                for ns2 in ns {
+                    for cell2_idx in ns2 {
                         if cell1_idx == *cell2_idx {
                             continue;
                         }
