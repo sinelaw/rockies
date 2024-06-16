@@ -1,10 +1,7 @@
 mod utils;
 mod v2;
 
-use std::{
-    cmp,
-    fmt::{self},
-};
+use std::fmt::{self};
 
 use v2::V2;
 use wasm_bindgen::prelude::*;
@@ -32,30 +29,20 @@ impl Color {
     }
 }
 
-const RESOLUTION: u32 = 2;
-const MAX_VELOCITY: V2 = V2 {
-    x: 10 * RESOLUTION as i32,
-    y: 10 * RESOLUTION as i32,
-};
+const RESOLUTION: u32 = 100;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Inertia {
     velocity: V2,
-    mass: u8,
+    force: V2,
+    pos: V2,
+    mass: i32,
 }
 
-impl Inertia {
-    pub fn accelerate(&self, accel: V2) -> Inertia {
-        Inertia {
-            velocity: self.velocity.plus(accel).min(MAX_VELOCITY),
-            mass: self.mass,
-        }
-    }
-}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Cell {
-    Empty,
-    Solid { color: Color, inertia: Inertia },
+pub struct Cell {
+    color: Color,
+    inertia: Inertia,
 }
 
 #[wasm_bindgen]
@@ -70,192 +57,97 @@ pub struct Universe {
     dt: i32,
 }
 
-impl Universe {
-    fn cell_index(&self, x: u32, y: u32) -> usize {
-        (y * self.cells_width + x) as usize
-    }
-}
-
 #[wasm_bindgen]
 impl Universe {
-    fn render(&mut self) -> () {
-        self.pixels.fill(0xFFFFFF);
-        for cell_y in 0..self.cells_height {
-            for cell_x in 0..self.cells_width {
-                let idx = self.cell_index(cell_x, cell_y);
-                let cell = self.cells[idx];
-
-                match cell {
-                    Cell::Empty => (),
-                    Cell::Solid { color, inertia: _ } => {
-                        let x = cell_x / (RESOLUTION as u32);
-                        let y = cell_y / (RESOLUTION as u32);
-                        let pixel_idx = (y * self.pixels_width + x) as usize;
-                        self.pixels[pixel_idx] = color.to_u32()
-                    }
-                };
-            }
+    fn calc_forces(&mut self) {
+        for cell in &mut self.cells {
+            cell.inertia.force = self.gravity.cmul(cell.inertia.mass);
         }
     }
 
-    fn clamp_position(&self, pos: V2, inertia: Inertia) -> (V2, Inertia) {
-        let w = self.cells_width as i32;
-        let h = self.cells_height as i32;
-        let new_pos: V2 = pos
-            .cmul(RESOLUTION as i32)
-            .plus(inertia.velocity.cmul(self.dt))
-            .cdiv(RESOLUTION as i32);
-
-        let clamped_pos = V2 {
-            x: match new_pos.x {
-                x if x < 0 || x >= w => pos.x,
-                x => x,
-            },
-            y: match new_pos.y {
-                y if y < 0 || y >= h => pos.y,
-                y => y,
-            },
-        };
-        // When an object reaches the immovable wall it reverses
-        // the direction inside the time step (e.g. halfway through),
-        // so simply reversing the velocity is wrong. In the first part of the time window,
-        // the object is still moving in the same direction, and in the second part it's reversed.
-        // 1. v + a*dt1
-        // 2. -(v + a*dt1) + a*dt2 = -v + a*(dt2 - dt1)
-        // In the most extreme cases, final velocity is either: -v - a*dt or -v + a*dt
-        // If we just ignore the acceleration instead we get an inaccurate result, but it conserves energy.
-        let new_velocity = V2 {
-            x: match new_pos.x {
-                x if x < 0 || x >= w => -inertia.velocity.x,
-
-                _ => inertia.velocity.x,
-            },
-
-            y: match new_pos.y {
-                y if y < 0 || y >= h => -inertia.velocity.y,
-                _ => inertia.velocity.y,
-            },
-        };
-        let corrected_velocity = match new_velocity {
-            v if v == inertia.velocity => v,
-            _ => new_velocity.minus(self.gravity.cmul(self.dt)),
-        };
-        let clamped_inertia = Inertia {
-            velocity: corrected_velocity,
-            mass: inertia.mass,
-        };
-        (clamped_pos, clamped_inertia)
+    fn zero_forces(&mut self) {
+        for cell in &mut self.cells {
+            cell.inertia.force = V2 { x: 0, y: 0 };
+        }
     }
 
-    fn apply_forces(&mut self) {
-        let mut next = self.cells.clone();
-
-        for cell_y in 0..self.cells_height {
-            for cell_x in 0..self.cells_width {
-                let idx = self.cell_index(cell_x, cell_y);
-                let cell = self.cells[idx];
-                let next_cell = match cell {
-                    Cell::Empty => cell,
-
-                    Cell::Solid { color, inertia } => Cell::Solid {
-                        color,
-                        inertia: {
-                            log!("{inertia:?}, pos: {row},{col}");
-                            inertia.accelerate(self.gravity.cmul(self.dt))
-                        },
-                    },
-                };
-
-                /*  match next_cell {
-                    Cell::Empty => {}
-                    c @ Cell::Solid { .. } => log!("Cell[{row},{col}] = {c:?}"),
-                } */
-                next[idx] = next_cell;
-            }
+    fn update_pos(&mut self) {
+        for cell in &mut self.cells {
+            cell.inertia.pos = cell.inertia.pos.plus(cell.inertia.velocity.cmul(self.dt));
         }
-        self.cells = next;
     }
 
-    fn update_positions(&mut self) {
-        let mut next = Vec::new();
-        next.resize(self.cells.len(), Cell::Empty);
-
-        for x in 0..self.cells_width {
-            for y in 0..self.cells_height {
-                let pos = V2 {
-                    x: x as i32,
-                    y: y as i32,
-                };
-                let idx = self.cell_index(x, y);
-                let cell = self.cells[idx];
-                match cell {
-                    Cell::Empty => {}
-                    Cell::Solid { color, inertia } => {
-                        let (new_pos, new_inertia) = self.clamp_position(pos, inertia);
-                        assert!(new_pos.x >= 0 && new_pos.y >= 0);
-                        let new_idx = self.cell_index(new_pos.x as u32, new_pos.y as u32);
-                        let new_cell = Cell::Solid {
-                            color: color,
-                            inertia: new_inertia,
-                        };
-                        // Very stupid collision algorithm
-                        match next[new_idx] {
-                            Cell::Empty => {
-                                next[new_idx] = new_cell;
-                            }
-                            _ => {
-                                next[idx] = new_cell;
-                            }
-                        }
-                    }
-                }
-            }
+    fn update_vel(&mut self) {
+        for cell in &mut self.cells {
+            cell.inertia.velocity = cell
+                .inertia
+                .velocity
+                .plus(cell.inertia.force.cdiv(cell.inertia.mass))
+                .cmul(self.dt);
         }
-        self.cells = next;
     }
 
     pub fn tick(&mut self) {
-        self.apply_forces();
-        self.update_positions();
+        self.calc_forces();
+        self.update_vel();
+        self.update_pos();
+        self.zero_forces();
+
         self.render();
 
         //log!("{}", self.render());
     }
 
+    fn add_cell(&mut self, cell: Cell) {
+        self.cells.push(cell);
+    }
+
     pub fn new(width: u32, height: u32) -> Universe {
         utils::set_panic_hook();
 
-        let cells: Vec<Cell> = (0..(width * height * (RESOLUTION * RESOLUTION) as u32))
-            .map(|i| {
-                if i % 2000 == 0 {
-                    Cell::Solid {
-                        color: Color {
-                            r: 0,
-                            g: cmp::min(u8::MAX, i as u8),
-                            b: 0,
-                        },
-                        inertia: Inertia {
-                            velocity: V2 { x: 5, y: 0 },
-                            mass: 10,
-                        },
-                    }
-                } else {
-                    Cell::Empty
-                }
-            })
-            .collect();
+        let mut cells = Vec::new();
 
         let mut pixels = Vec::with_capacity((width * height) as usize);
         pixels.resize((width * height) as usize, 0xFFFFFF);
-        Universe {
+        let mut uni = Universe {
             cells_width: width * RESOLUTION,
             cells_height: height * RESOLUTION,
             pixels_width: width,
             pixels_height: height,
             cells: cells,
             pixels: pixels,
-            gravity: V2 { x: 0, y: 1 },
+            gravity: V2 { x: 0, y: 10 },
             dt: 1,
+        };
+
+        let cell = Cell {
+            color: Color { r: 0, g: 150, b: 0 },
+            inertia: Inertia {
+                velocity: V2 {
+                    x: 1 * RESOLUTION as i32,
+                    y: 0,
+                },
+                force: V2 { x: 0, y: 0 },
+                pos: V2 { x: 5, y: 0 },
+                mass: 1,
+            },
+        };
+        uni.add_cell(cell);
+
+        uni
+    }
+
+    fn render(&mut self) -> () {
+        self.pixels.fill(0xFFFFFF);
+        for cell in &self.cells {
+            let x = cell.inertia.pos.x / (RESOLUTION as i32);
+            let y = cell.inertia.pos.y / (RESOLUTION as i32);
+            // out of the screen bounds
+            if x < 0 || x >= self.pixels_width as i32 || y < 0 || y >= self.pixels_height as i32 {
+                continue;
+            }
+            let pixel_idx = (y as u32 * self.pixels_width + x as u32) as usize;
+            self.pixels[pixel_idx] = cell.color.to_u32()
         }
     }
 
@@ -287,9 +179,6 @@ impl fmt::Display for Universe {
         }
 
         for cell in self.cells.iter() {
-            if cell == &Cell::Empty {
-                continue;
-            }
             write!(f, "{cell:?}\n")?;
         }
 
