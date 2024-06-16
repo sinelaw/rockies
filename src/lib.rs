@@ -177,7 +177,8 @@ impl Universe {
     }
 
     fn update_positions(&mut self) {
-        let mut next = self.cells.clone();
+        let mut next = Vec::new();
+        next.resize(self.cells.len(), Cell::Empty);
 
         for x in 0..self.cells_width {
             for y in 0..self.cells_height {
@@ -193,10 +194,18 @@ impl Universe {
                         let (new_pos, new_inertia) = self.clamp_position(pos, inertia);
                         assert!(new_pos.x >= 0 && new_pos.y >= 0);
                         let new_idx = self.cell_index(new_pos.x as u32, new_pos.y as u32);
-                        next[idx] = self.cells[new_idx];
-                        next[new_idx] = Cell::Solid {
+                        let new_cell = Cell::Solid {
                             color: color,
                             inertia: new_inertia,
+                        };
+                        // Very stupid collision algorithm
+                        match next[new_idx] {
+                            Cell::Empty => {
+                                next[new_idx] = new_cell;
+                            }
+                            _ => {
+                                next[idx] = new_cell;
+                            }
                         }
                     }
                 }
