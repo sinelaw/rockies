@@ -104,6 +104,10 @@ impl Universe {
                 if cell1_idx == cell2_idx {
                     continue;
                 }
+                // collision between infinite masses?!
+                if (cell1.inertia.mass == 0) && (cell2.inertia.mass == 0) {
+                    continue;
+                }
 
                 let norm = cell1.inertia.pos.minus(cell2.inertia.pos);
                 if norm.magnitude() > 1.0 {
@@ -111,6 +115,7 @@ impl Universe {
                 }
 
                 let rel_velocity = cell1.inertia.velocity.minus(cell2.inertia.velocity);
+
                 // if the dot product is negative, the two objects are colliding,
                 let dot = rel_velocity.dot(norm);
                 if dot > 0.0 {
@@ -151,12 +156,12 @@ impl Universe {
             if (cell1.inertia.mass == 0) && (cell2.inertia.mass == 0) {
                 continue;
             }
-            if (cell1.inertia.mass == 0) {
+            if cell1.inertia.mass == 0 {
                 // cell1 = infinite mass, cell2 = finite mass
                 let cell = &mut self.cells[cell2_idx];
                 cell.inertia.velocity = cell2.inertia.velocity.plus(norm.cmul(collision_vel));
             }
-            if (cell2.inertia.mass == 0) {
+            if cell2.inertia.mass == 0 {
                 // cell1 = finite mass, cell2 = infinite mass
                 let cell = &mut self.cells[cell1_idx];
                 cell.inertia.velocity = cell1.inertia.velocity.plus(norm.cmul(collision_vel));
@@ -180,7 +185,7 @@ impl Universe {
     }
 
     pub fn tick(&mut self) {
-        for i in 0..((1.0 / self.dt) as usize) {
+        for _ in 0..((1.0 / self.dt) as usize) {
             self.calc_forces();
             self.update_vel();
 
@@ -226,7 +231,7 @@ impl Universe {
             dt: 0.01,
         };
 
-        for i in 0..10 {
+        for i in 0..1 {
             uni.add_cell(Cell {
                 color: Color {
                     r: (10 * i) % 255,
