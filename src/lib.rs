@@ -1,12 +1,12 @@
 mod grid;
+mod smallint_set;
 mod utils;
 mod v2;
 
 use std::fmt;
 
-use fnv::FnvHashSet;
-
 use grid::Grid;
+use smallint_set::IntPairSet;
 use v2::V2;
 use wasm_bindgen::prelude::*;
 
@@ -70,13 +70,6 @@ fn inverse_mass(cell: Cell) -> f64 {
 
 fn round(x: f64) -> i32 {
     (x + 0.5) as i32
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Collision {
-    Unknown,
-    Collision,
-    NoCollision,
 }
 
 #[wasm_bindgen]
@@ -156,8 +149,7 @@ impl Universe {
 
     fn collect_collisions(&mut self) -> Vec<(usize, usize)> {
         let mut collisions_list: Vec<(usize, usize)> = Vec::new();
-        let mut collisions: Vec<Collision> = Vec::new();
-        collisions.resize(self.cells.len() * self.cells.len(), Collision::Unknown);
+        let mut collisions_map = IntPairSet::new(self.cells.len());
 
         for (cell1_idx, cell1) in self.cells.iter().enumerate() {
             if !self.is_in_bounds(cell1.inertia.pos) {
@@ -173,16 +165,11 @@ impl Universe {
                             continue;
                         }
 
-                        if collisions[cell1_idx * self.cells.len() + *cell2_idx]
-                            != Collision::Unknown
-                        {
+                        if collisions_map.contains(cell1_idx, *cell2_idx) {
                             continue;
                         }
 
-                        collisions[cell1_idx * self.cells.len() + *cell2_idx] =
-                            Collision::NoCollision;
-                        collisions[*cell2_idx * self.cells.len() + cell1_idx] =
-                            Collision::NoCollision;
+                        collisions_map.put(cell1_idx, *cell2_idx);
 
                         let cell2 = &self.cells[*cell2_idx];
                         // collision between infinite masses?!
@@ -213,11 +200,6 @@ impl Universe {
                             // negligible velocity (floating point error)
                             continue;
                         }
-
-                        collisions[cell1_idx * self.cells.len() + *cell2_idx] =
-                            Collision::Collision;
-                        collisions[*cell2_idx * self.cells.len() + cell1_idx] =
-                            Collision::Collision;
 
                         collisions_list.push((cell1_idx, *cell2_idx));
 
