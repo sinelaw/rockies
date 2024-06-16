@@ -1,7 +1,7 @@
 mod utils;
 mod v2;
 
-use std::fmt::{self};
+use std::{cell, collections::HashSet, fmt};
 
 use v2::V2;
 use wasm_bindgen::prelude::*;
@@ -41,6 +41,7 @@ pub struct Inertia {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Cell {
+    id: u64,
     color: Color,
     inertia: Inertia,
 }
@@ -54,14 +55,14 @@ pub struct Universe {
     cells: Vec<Cell>,
     pixels: Vec<u32>,
     gravity: V2,
-    dt: i32,
+    dt: f64,
 }
 
 #[wasm_bindgen]
 impl Universe {
     fn calc_forces(&mut self) {
         for cell in &mut self.cells {
-            cell.inertia.force = self.gravity.cmul(cell.inertia.mass);
+            cell.inertia.force = self.gravity.cmul(cell.inertia.mass as f64);
         }
     }
 
@@ -82,8 +83,61 @@ impl Universe {
             cell.inertia.velocity = cell
                 .inertia
                 .velocity
-                .plus(cell.inertia.force.cdiv(cell.inertia.mass))
+                .plus(cell.inertia.force.cdiv(cell.inertia.mass as f64))
                 .cmul(self.dt);
+        }
+    }
+
+    fn collect_collisions(&mut self) -> HashSet<(usize, usize)> {
+        let mut collisions: HashSet<(usize, usize)> = HashSet::new();
+        for (cell_index, cell) in self.cells.iter().enumerate() {
+            for (other_cell_index, other_cell) in self.cells.iter().enumerate() {
+                if cell.id == other_cell.id {
+                    continue;
+                }
+                if cell.inertia.pos != other_cell.inertia.pos {
+                    continue;
+                }
+                let rel_velocity = cell.inertia.velocity.minus(other_cell.inertia.velocity);
+                let norm = cell.inertia.pos.minus(other_cell.inertia.pos);
+                // if the dot product is negative, the two objects are colliding,
+                if rel_velocity.dot(norm) > 0 {
+                    continue;
+                }
+                let key = (
+                    cell_index.min(other_cell_index),
+                    cell_index.max(other_cell_index),
+                );
+
+                collisions.insert(key);
+            }
+        }
+        collisions
+    }
+
+    fn calc_collisions(&mut self) {
+        let collisions = self.collect_collisions();
+        for (cell1_idx, cell2_idx) in collisions {
+            let cell2 = self.cells[cell2_idx];
+            let cell1 = self.cells[cell1_idx];
+
+            let rel_velocity = cell1.inertia.velocity.minus(cell2.inertia.velocity);
+            let norm = cell1.inertia.pos.minus(cell2.inertia.pos);
+            // coefficient of restitution
+            let e = 0.9;
+            let collision_vel: f64 = rel_velocity.dot(norm) as f64 * -(1.0 + e);
+            let im1 = 1.0 / (cell1.inertia.mass as f64);
+            let im2 = 1.0 / (cell2.inertia.mass as f64);
+            let impulse = collision_vel / (im1 + im2);
+
+            {
+                let cell = &mut self.cells[cell1_idx];
+                cell.inertia.velocity = cell1.inertia.velocity.plus(norm.cmul(impulse * im1));
+            }
+            {
+                let cell = &mut self.cells[cell2_idx];
+                cell.inertia.velocity = cell2.inertia.velocity.minus(norm.cmul(impulse * im2));
+            }
         }
     }
 
@@ -99,28 +153,32 @@ impl Universe {
     }
 
     fn add_cell(&mut self, cell: Cell) {
-        self.cells.push(cell);
+        self.cells.push(Cell {
+            id: self.cells.len() as u64,
+            ..cell
+        });
     }
 
     pub fn new(width: u32, height: u32) -> Universe {
         utils::set_panic_hook();
 
-        let mut cells = Vec::new();
-
-        let mut pixels = Vec::with_capacity((width * height) as usize);
-        pixels.resize((width * height) as usize, 0xFFFFFF);
         let mut uni = Universe {
             cells_width: width * RESOLUTION,
             cells_height: height * RESOLUTION,
             pixels_width: width,
             pixels_height: height,
-            cells: cells,
-            pixels: pixels,
+            cells: Vec::new(),
+            pixels: {
+                let mut pixels = Vec::with_capacity((width * height) as usize);
+                pixels.resize((width * height) as usize, 0xFFFFFF);
+                pixels
+            },
             gravity: V2 { x: 0, y: 10 },
-            dt: 1,
+            dt: 0.1,
         };
 
         let cell = Cell {
+            id: 0,
             color: Color { r: 0, g: 150, b: 0 },
             inertia: Inertia {
                 velocity: V2 {
