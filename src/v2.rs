@@ -1,13 +1,13 @@
-use std::cmp;
+use wasm_bindgen::prelude::*;
 
-use web_sys::js_sys::Math;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[wasm_bindgen]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct V2 {
-    pub x: i32,
-    pub y: i32,
+    pub x: f64,
+    pub y: f64,
 }
 
+#[wasm_bindgen]
 impl V2 {
     pub fn plus(&self, other: V2) -> V2 {
         V2 {
@@ -23,30 +23,18 @@ impl V2 {
     }
     pub fn cmul(&self, other: f64) -> V2 {
         V2 {
-            x: Math::round(self.x as f64 * other) as i32,
-            y: Math::round(self.y as f64 * other) as i32,
+            x: (self.x as f64 * other) as f64,
+            y: (self.y as f64 * other) as f64,
         }
     }
     pub fn cdiv(&self, other: f64) -> V2 {
         V2 {
-            x: Math::round(self.x as f64 / other) as i32,
-            y: Math::round(self.y as f64 / other) as i32,
+            x: (self.x as f64 / other) as f64,
+            y: (self.y as f64 / other) as f64,
         }
     }
 
-    pub fn max(self, other: V2) -> V2 {
-        V2 {
-            x: cmp::max(self.x, other.x),
-            y: cmp::max(self.y, other.y),
-        }
-    }
-    pub fn min(self, other: V2) -> V2 {
-        V2 {
-            x: cmp::min(self.x, other.x),
-            y: cmp::min(self.y, other.y),
-        }
-    }
-    pub fn dot(&self, other: V2) -> i32 {
+    pub fn dot(&self, other: V2) -> f64 {
         self.x * other.x + self.y * other.y
     }
 }

@@ -1,7 +1,7 @@
 mod utils;
 mod v2;
 
-use std::{cell, collections::HashSet, fmt};
+use std::{collections::HashSet, fmt};
 
 use v2::V2;
 use wasm_bindgen::prelude::*;
@@ -9,11 +9,11 @@ use wasm_bindgen::prelude::*;
 extern crate web_sys;
 
 // A macro to provide `println!(..)`-style syntax for `console.log` logging.
-macro_rules! log {
+/* macro_rules! log {
     ( $( $t:tt )* ) => {
-        //       web_sys::console::log_1(&format!( $( $t )* ).into())
+               web_sys::console::log_1(&format!( $( $t )* ).into())
     };
-}
+} */
 
 #[wasm_bindgen]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -31,7 +31,7 @@ impl Color {
 
 const RESOLUTION: u32 = 100;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Inertia {
     velocity: V2,
     force: V2,
@@ -39,7 +39,7 @@ pub struct Inertia {
     mass: i32,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Cell {
     id: u64,
     color: Color,
@@ -48,8 +48,6 @@ pub struct Cell {
 
 #[wasm_bindgen]
 pub struct Universe {
-    cells_width: u32,
-    cells_height: u32,
     pixels_width: u32,
     pixels_height: u32,
     cells: Vec<Cell>,
@@ -68,7 +66,7 @@ impl Universe {
 
     fn zero_forces(&mut self) {
         for cell in &mut self.cells {
-            cell.inertia.force = V2 { x: 0, y: 0 };
+            cell.inertia.force = V2 { x: 0.0, y: 0.0 };
         }
     }
 
@@ -101,7 +99,7 @@ impl Universe {
                 let rel_velocity = cell.inertia.velocity.minus(other_cell.inertia.velocity);
                 let norm = cell.inertia.pos.minus(other_cell.inertia.pos);
                 // if the dot product is negative, the two objects are colliding,
-                if rel_velocity.dot(norm) > 0 {
+                if rel_velocity.dot(norm) > 0.0 {
                     continue;
                 }
                 let key = (
@@ -110,6 +108,7 @@ impl Universe {
                 );
 
                 collisions.insert(key);
+                // println!("collisions: {:?}", collisions);
             }
         }
         collisions
@@ -144,6 +143,12 @@ impl Universe {
     pub fn tick(&mut self) {
         self.calc_forces();
         self.update_vel();
+
+        for cell in self.cells.iter() {
+            println!("{cell:?}\n");
+        }
+
+        self.calc_collisions();
         self.update_pos();
         self.zero_forces();
 
@@ -163,8 +168,6 @@ impl Universe {
         utils::set_panic_hook();
 
         let mut uni = Universe {
-            cells_width: width * RESOLUTION,
-            cells_height: height * RESOLUTION,
             pixels_width: width,
             pixels_height: height,
             cells: Vec::new(),
@@ -173,7 +176,7 @@ impl Universe {
                 pixels.resize((width * height) as usize, 0xFFFFFF);
                 pixels
             },
-            gravity: V2 { x: 0, y: 10 },
+            gravity: V2 { x: 0.0, y: 10.0 },
             dt: 0.1,
         };
 
@@ -182,11 +185,11 @@ impl Universe {
             color: Color { r: 0, g: 150, b: 0 },
             inertia: Inertia {
                 velocity: V2 {
-                    x: 1 * RESOLUTION as i32,
-                    y: 0,
+                    x: 1.0 * RESOLUTION as f64,
+                    y: 0.0,
                 },
-                force: V2 { x: 0, y: 0 },
-                pos: V2 { x: 5, y: 0 },
+                force: V2 { x: 0.0, y: 0.0 },
+                pos: V2 { x: 5.0, y: 0.0 },
                 mass: 1,
             },
         };
@@ -198,10 +201,11 @@ impl Universe {
     fn render(&mut self) -> () {
         self.pixels.fill(0xFFFFFF);
         for cell in &self.cells {
-            let x = cell.inertia.pos.x / (RESOLUTION as i32);
-            let y = cell.inertia.pos.y / (RESOLUTION as i32);
+            let x = cell.inertia.pos.x / (RESOLUTION as f64);
+            let y = cell.inertia.pos.y / (RESOLUTION as f64);
             // out of the screen bounds
-            if x < 0 || x >= self.pixels_width as i32 || y < 0 || y >= self.pixels_height as i32 {
+            if x < 0.0 || x >= self.pixels_width as f64 || y < 0.0 || y >= self.pixels_height as f64
+            {
                 continue;
             }
             let pixel_idx = (y as u32 * self.pixels_width + x as u32) as usize;
@@ -234,10 +238,6 @@ impl fmt::Display for Universe {
                 write!(f, "{}", symbol)?;
             }
             write!(f, "\n")?;
-        }
-
-        for cell in self.cells.iter() {
-            write!(f, "{cell:?}\n")?;
         }
 
         return Ok(());
