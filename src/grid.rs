@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::hash::Hash;
 
 pub struct Grid<T> {
@@ -11,7 +10,7 @@ impl<T: Hash + Clone + Eq> Grid<T> {
     pub fn new(width: usize, height: usize) -> Grid<T> {
         let mut grid: Vec<Vec<Vec<T>>> = Vec::new();
         grid.resize((width + 2) as usize, {
-            let mut v = Vec::new();
+            let mut v = Vec::with_capacity(8);
             v.resize((height + 2) as usize, Vec::new());
             v
         });
@@ -32,14 +31,24 @@ impl<T: Hash + Clone + Eq> Grid<T> {
         }
     }
 
-    pub fn get(&self, x: usize, y: usize) -> HashSet<T> {
+    pub fn remove(&mut self, x: usize, y: usize, value: &T) {
         assert!(x < self.width);
         assert!(y < self.height);
-        let mut res = HashSet::new();
+        for px in 0..3 {
+            for py in 0..3 {
+                self.grid[x + px][y + py].retain(|v| v != value);
+            }
+        }
+    }
+
+    pub fn get(&self, x: usize, y: usize) -> Vec<T> {
+        assert!(x < self.width);
+        assert!(y < self.height);
+        let mut res = Vec::with_capacity(9 * 9);
         for px in 0..3 {
             for py in 0..3 {
                 for v in self.grid[x + px][y + py].iter() {
-                    res.insert(v.clone());
+                    res.push(v.clone());
                 }
             }
         }
@@ -65,9 +74,9 @@ mod tests {
         let res = grid.get(0, 0);
 
         let mut expected = HashSet::new();
-        expected.insert('a');
+        expected.insert(&'a');
 
-        assert_eq!(res, expected);
+        assert_eq!(res.iter().collect::<HashSet<_>>(), expected);
     }
 
     #[test]
@@ -78,9 +87,9 @@ mod tests {
         let res = grid.get(0, 0);
 
         let mut expected = HashSet::new();
-        expected.insert('a');
-        expected.insert('b');
+        expected.insert(&'a');
+        expected.insert(&'b');
 
-        assert_eq!(res, expected);
+        assert_eq!(res.iter().collect::<HashSet<_>>(), expected);
     }
 }

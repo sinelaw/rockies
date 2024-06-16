@@ -42,6 +42,7 @@ pub struct Inertia {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Cell {
+    index: usize,
     color: Color,
     inertia: Inertia,
 }
@@ -51,6 +52,7 @@ pub struct Universe {
     pixels_width: u32,
     pixels_height: u32,
     cells: Vec<Cell>,
+    grid: Grid<usize>,
     pixels: Vec<u32>,
     gravity: V2,
     dt: f64,
@@ -84,8 +86,28 @@ impl Universe {
     }
 
     fn update_pos(&mut self) {
+        for cell in &self.cells {
+            if self.is_in_bounds(cell.inertia.pos) {
+                self.grid.remove(
+                    cell.inertia.pos.x as usize,
+                    cell.inertia.pos.y as usize,
+                    &cell.index,
+                );
+            }
+        }
+
         for cell in &mut self.cells {
             cell.inertia.pos = cell.inertia.pos.plus(cell.inertia.velocity.cmul(self.dt));
+        }
+        for cell in &self.cells {
+            if self.is_in_bounds(cell.inertia.pos) {
+                // store in the grid
+                self.grid.put(
+                    cell.inertia.pos.x as usize,
+                    cell.inertia.pos.y as usize,
+                    cell.index,
+                );
+            }
         }
     }
 
@@ -118,29 +140,36 @@ impl Universe {
         }
     }
 
-    fn collect_collisions(&mut self) -> HashSet<(usize, usize)> {
-        let mut grid: Grid<usize> =
-            Grid::new(self.pixels_width as usize, self.pixels_height as usize);
-        for (cell_idx, cell) in self.cells.iter().enumerate() {
-            grid.put(
-                cell.inertia.pos.x as usize,
-                cell.inertia.pos.y as usize,
-                cell_idx,
-            );
-        }
+    fn is_in_bounds(&self, pos: V2) -> bool {
+        pos.x >= 0.0
+            && pos.x < self.pixels_width as f64
+            && pos.y >= 0.0
+            && pos.y < self.pixels_height as f64
+    }
 
+    fn collect_collisions(&mut self) -> HashSet<(usize, usize)> {
         let mut collisions: HashSet<(usize, usize)> = HashSet::new();
         for (cell1_idx, cell1) in self.cells.iter().enumerate() {
-            for cell2_idx in grid
+            if !self.is_in_bounds(cell1.inertia.pos) {
+                continue;
+            }
+            for cell2_idx in self
+                .grid
                 .get(cell1.inertia.pos.x as usize, cell1.inertia.pos.y as usize)
                 .iter()
             {
                 if cell1_idx == *cell2_idx {
                     continue;
                 }
+
                 let cell2 = &self.cells[*cell2_idx];
                 // collision between infinite masses?!
                 if (cell1.inertia.mass == 0) && (cell2.inertia.mass == 0) {
+                    continue;
+                }
+
+                let key = (cell1_idx.min(*cell2_idx), cell1_idx.max(*cell2_idx));
+                if collisions.contains(&key) {
                     continue;
                 }
 
@@ -161,8 +190,6 @@ impl Universe {
                     // negligible velocity (floating point error)
                     continue;
                 }
-                let key = (cell1_idx.min(*cell2_idx), cell1_idx.max(*cell2_idx));
-
                 collisions.insert(key);
 
                 log!("collision: {key:?} {normal:?} {dot:?}");
@@ -259,11 +286,15 @@ impl Universe {
     }
 
     fn add_cell(&mut self, cell: Cell) {
-        self.cells.push(cell);
+        self.cells.push(Cell {
+            index: self.cells.len(),
+            ..cell
+        });
     }
 
     fn wall_cell(&self, x: f64, y: f64) -> Cell {
         Cell {
+            index: 0,
             color: Color { r: 150, g: 0, b: 0 },
             inertia: Inertia {
                 velocity: V2 { x: 0.0, y: 0.0 },
@@ -276,6 +307,7 @@ impl Universe {
 
     pub fn click(&mut self, x: u32, y: u32) {
         self.add_cell(Cell {
+            index: 0,
             color: Color {
                 r: ((10 * x) % 255) as u8,
                 g: 150,
@@ -300,6 +332,7 @@ impl Universe {
             pixels_width: width,
             pixels_height: height,
             cells: Vec::new(),
+            grid: Grid::new(width as usize, height as usize),
             pixels: {
                 let mut pixels = Vec::with_capacity((width * height) as usize);
                 pixels.resize((width * height) as usize, 0xFFFFFF);
