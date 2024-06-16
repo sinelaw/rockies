@@ -1,23 +1,29 @@
 use std::hash::Hash;
 
+#[derive(Debug)]
 pub struct Grid<T> {
     width: usize,
     height: usize,
-    grid: Vec<Vec<Vec<T>>>,
+    grid: Vec<Vec<T>>,
+    empty_vec: Vec<T>,
+}
+
+fn grid_index(x: usize, y: usize, height: usize) -> usize {
+    x * (height + 2) + y
 }
 
 impl<T: Hash + Clone + Eq> Grid<T> {
     pub fn new(width: usize, height: usize) -> Grid<T> {
-        let mut grid: Vec<Vec<Vec<T>>> = Vec::new();
-        grid.resize((width + 2) as usize, {
-            let mut v = Vec::with_capacity(8);
-            v.resize((height + 2) as usize, Vec::new());
-            v
-        });
+        let mut grid: Vec<Vec<T>> = Vec::new();
+        grid.resize(
+            ((width + 2) * (height + 2)) as usize,
+            Vec::with_capacity(9 * 9),
+        );
         Grid {
             width,
             height,
             grid,
+            empty_vec: Vec::new(),
         }
     }
 
@@ -26,30 +32,33 @@ impl<T: Hash + Clone + Eq> Grid<T> {
         assert!(y < self.height);
         for px in 0..3 {
             for py in 0..3 {
-                self.grid[x + px][y + py].push(value.clone());
+                self.grid[grid_index(x + px, y + py, self.height)].push(value.clone());
             }
         }
     }
 
-    pub fn remove(&mut self, x: usize, y: usize, value: &T) {
+    pub fn clear(&mut self, x: usize, y: usize) {
         assert!(x < self.width);
         assert!(y < self.height);
         for px in 0..3 {
             for py in 0..3 {
-                self.grid[x + px][y + py].retain(|v| v != value);
+                self.grid[grid_index(x + px, y + py, self.height)].clear();
             }
         }
     }
 
-    pub fn get(&self, x: usize, y: usize) -> Vec<T> {
+    pub fn get(&self, x: usize, y: usize) -> [[&Vec<T>; 3]; 3] {
         assert!(x < self.width);
         assert!(y < self.height);
-        let mut res = Vec::with_capacity(9 * 9);
+
+        let mut res: [[&Vec<T>; 3]; 3] = [
+            [&self.empty_vec, &self.empty_vec, &self.empty_vec],
+            [&self.empty_vec, &self.empty_vec, &self.empty_vec],
+            [&self.empty_vec, &self.empty_vec, &self.empty_vec],
+        ];
         for px in 0..3 {
             for py in 0..3 {
-                for v in self.grid[x + px][y + py].iter() {
-                    res.push(v.clone());
-                }
+                res[px][py] = &self.grid[grid_index(x + px, y + py, self.height)];
             }
         }
         res
@@ -58,7 +67,6 @@ impl<T: Hash + Clone + Eq> Grid<T> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
 
     use super::*;
 
@@ -73,10 +81,15 @@ mod tests {
         grid.put(0, 0, 'a');
         let res = grid.get(0, 0);
 
-        let mut expected = HashSet::new();
-        expected.insert(&'a');
+        println!("{:?}", grid);
 
-        assert_eq!(res.iter().collect::<HashSet<_>>(), expected);
+        let expected = [
+            [&vec!['a'], &vec!['a'], &vec!['a']],
+            [&vec!['a'], &vec!['a'], &vec!['a']],
+            [&vec!['a'], &vec!['a'], &vec!['a']],
+        ];
+
+        assert_eq!(res, expected);
     }
 
     #[test]
@@ -84,12 +97,15 @@ mod tests {
         let mut grid: Grid<char> = Grid::new(2, 1);
         grid.put(0, 0, 'a');
         grid.put(1, 0, 'b');
+
         let res = grid.get(0, 0);
 
-        let mut expected = HashSet::new();
-        expected.insert(&'a');
-        expected.insert(&'b');
+        let expected = [
+            [&vec!['a'], &vec!['a'], &vec!['a']],
+            [&vec!['a', 'b'], &vec!['a', 'b'], &vec!['a', 'b']],
+            [&vec!['a', 'b'], &vec!['a', 'b'], &vec!['a', 'b']],
+        ];
 
-        assert_eq!(res.iter().collect::<HashSet<_>>(), expected);
+        assert_eq!(res, expected);
     }
 }

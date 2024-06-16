@@ -87,5 +87,7 @@ requestAnimationFrame(renderLoop);
 
 canvas.onmousemove = (e) => {
     universe.click(e.offsetX / (CELL_SIZE + 1), e.offsetY / (CELL_SIZE + 1));
-
+};
+canvas.ontouchmove = (e) => {
+    universe.click(e.offsetX / (CELL_SIZE + 1), e.offsetY / (CELL_SIZE + 1));
 };

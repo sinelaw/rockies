@@ -88,11 +88,8 @@ impl Universe {
     fn update_pos(&mut self) {
         for cell in &self.cells {
             if self.is_in_bounds(cell.inertia.pos) {
-                self.grid.remove(
-                    cell.inertia.pos.x as usize,
-                    cell.inertia.pos.y as usize,
-                    &cell.index,
-                );
+                self.grid
+                    .clear(cell.inertia.pos.x as usize, cell.inertia.pos.y as usize);
             }
         }
 
@@ -149,54 +146,58 @@ impl Universe {
 
     fn collect_collisions(&mut self) -> HashSet<(usize, usize)> {
         let mut collisions: HashSet<(usize, usize)> = HashSet::new();
+
         for (cell1_idx, cell1) in self.cells.iter().enumerate() {
             if !self.is_in_bounds(cell1.inertia.pos) {
                 continue;
             }
-            for cell2_idx in self
+            let neighbors = self
                 .grid
-                .get(cell1.inertia.pos.x as usize, cell1.inertia.pos.y as usize)
-                .iter()
-            {
-                if cell1_idx == *cell2_idx {
-                    continue;
-                }
+                .get(cell1.inertia.pos.x as usize, cell1.inertia.pos.y as usize);
+            for ns in neighbors.iter() {
+                for ns2 in ns.iter() {
+                    for cell2_idx in ns2.iter() {
+                        if cell1_idx == *cell2_idx {
+                            continue;
+                        }
 
-                let cell2 = &self.cells[*cell2_idx];
-                // collision between infinite masses?!
-                if (cell1.inertia.mass == 0) && (cell2.inertia.mass == 0) {
-                    continue;
-                }
+                        let cell2 = &self.cells[*cell2_idx];
+                        // collision between infinite masses?!
+                        if (cell1.inertia.mass == 0) && (cell2.inertia.mass == 0) {
+                            continue;
+                        }
 
-                let key = (cell1_idx.min(*cell2_idx), cell1_idx.max(*cell2_idx));
-                if collisions.contains(&key) {
-                    continue;
-                }
+                        let key = (cell1_idx.min(*cell2_idx), cell1_idx.max(*cell2_idx));
+                        if collisions.contains(&key) {
+                            continue;
+                        }
 
-                let normal = cell1.inertia.pos.minus(cell2.inertia.pos);
-                let radius = 1.0; // they're actually boxes but ok
-                if normal.magnitude() > radius {
-                    continue;
-                }
+                        let normal = cell1.inertia.pos.minus(cell2.inertia.pos);
+                        let radius = 1.0; // they're actually boxes but ok
+                        if normal.magnitude() > radius {
+                            continue;
+                        }
 
-                let rel_velocity = cell1.inertia.velocity.minus(cell2.inertia.velocity);
-                // if the dot product is negative, the two objects are colliding,
-                let dot = rel_velocity.dot(normal);
-                if dot > 0.0 {
-                    // moving away from each other
-                    continue;
-                }
-                if dot * dot < 0.0001 {
-                    // negligible velocity (floating point error)
-                    continue;
-                }
-                collisions.insert(key);
+                        let rel_velocity = cell1.inertia.velocity.minus(cell2.inertia.velocity);
+                        // if the dot product is negative, the two objects are colliding,
+                        let dot = rel_velocity.dot(normal);
+                        if dot > 0.0 {
+                            // moving away from each other
+                            continue;
+                        }
+                        if dot * dot < 0.0001 {
+                            // negligible velocity (floating point error)
+                            continue;
+                        }
+                        collisions.insert(key);
 
-                log!("collision: {key:?} {normal:?} {dot:?}");
-                log!("cell1: {cell1:?}");
-                log!("cell2: {cell2:?}");
+                        log!("collision: {key:?} {normal:?} {dot:?}");
+                        log!("cell1: {cell1:?}");
+                        log!("cell2: {cell2:?}");
 
-                // println!("collisions: {:?}", collisions);
+                        // println!("collisions: {:?}", collisions);
+                    }
+                }
             }
         }
         collisions
@@ -270,8 +271,7 @@ impl Universe {
     pub fn tick(&mut self) {
         self.render();
 
-        for _ in 0..1 {
-            //((1.0 / self.dt) as usize) {
+        for _ in 0..((1.0 / self.dt) as usize) {
             self.log_cells();
 
             self.calc_forces();
