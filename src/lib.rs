@@ -1,10 +1,12 @@
 mod utils;
+mod v2;
 
 use std::{
     cmp,
     fmt::{self},
 };
 
+use v2::V2;
 use wasm_bindgen::prelude::*;
 
 extern crate web_sys;
@@ -27,51 +29,6 @@ pub struct Color {
 impl Color {
     pub fn to_u32(&self) -> u32 {
         (self.r as u32 * 256 * 256) + (self.g as u32 * 256) + self.b as u32
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct V2 {
-    x: i32,
-    y: i32,
-}
-
-impl V2 {
-    pub fn plus(&self, other: V2) -> V2 {
-        V2 {
-            x: self.x + other.x,
-            y: self.y + other.y,
-        }
-    }
-    pub fn minus(&self, other: V2) -> V2 {
-        V2 {
-            x: self.x - other.x,
-            y: self.y - other.y,
-        }
-    }
-    pub fn cmul(&self, other: i32) -> V2 {
-        V2 {
-            x: self.x * other,
-            y: self.y * other,
-        }
-    }
-    pub fn cdiv(&self, other: i32) -> V2 {
-        V2 {
-            x: self.x / other,
-            y: self.y / other,
-        }
-    }
-    pub fn max(self, other: V2) -> V2 {
-        V2 {
-            x: cmp::max(self.x, other.x),
-            y: cmp::max(self.y, other.y),
-        }
-    }
-    pub fn min(self, other: V2) -> V2 {
-        V2 {
-            x: cmp::min(self.x, other.x),
-            y: cmp::min(self.y, other.y),
-        }
     }
 }
 
@@ -151,13 +108,11 @@ impl Universe {
 
         let clamped_pos = V2 {
             x: match new_pos.x {
-                x if x < 0 => -x,
-                x if x >= w => w - (x - w) - 1,
+                x if x < 0 || x >= w => pos.x,
                 x => x,
             },
             y: match new_pos.y {
-                y if y < 0 => -y,
-                y if y >= h => h - (y - h) - 1,
+                y if y < 0 || y >= h => pos.y,
                 y => y,
             },
         };
@@ -181,7 +136,10 @@ impl Universe {
                 _ => inertia.velocity.y,
             },
         };
-        let corrected_velocity = new_velocity.minus(self.gravity.cmul(self.dt));
+        let corrected_velocity = match new_velocity {
+            v if v == inertia.velocity => v,
+            _ => new_velocity.minus(self.gravity.cmul(self.dt)),
+        };
         let clamped_inertia = Inertia {
             velocity: corrected_velocity,
             mass: inertia.mass,
@@ -260,7 +218,7 @@ impl Universe {
 
         let cells: Vec<Cell> = (0..(width * height * (RESOLUTION * RESOLUTION) as u32))
             .map(|i| {
-                if i == 0 {
+                if i % 2000 == 0 {
                     Cell::Solid {
                         color: Color {
                             r: 0,
@@ -268,7 +226,7 @@ impl Universe {
                             b: 0,
                         },
                         inertia: Inertia {
-                            velocity: V2 { x: 0, y: 0 },
+                            velocity: V2 { x: 5, y: 0 },
                             mass: 10,
                         },
                     }
