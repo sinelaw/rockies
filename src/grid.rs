@@ -1,8 +1,11 @@
+use std::collections::HashSet;
+use std::hash::Hash;
+
 pub struct Grid<T> {
     grid: Vec<Vec<Vec<T>>>,
 }
 
-impl<T: Clone> Grid<T> {
+impl<T: Hash + Clone + Eq> Grid<T> {
     pub fn new(width: usize, height: usize) -> Grid<T> {
         let mut grid: Vec<Vec<Vec<T>>> = Vec::new();
         grid.resize((width + 2) as usize, {
@@ -21,12 +24,12 @@ impl<T: Clone> Grid<T> {
         }
     }
 
-    pub fn get(&self, x: usize, y: usize) -> Vec<T> {
-        let mut res = Vec::new();
+    pub fn get(&self, x: usize, y: usize) -> HashSet<T> {
+        let mut res = HashSet::new();
         for px in 0..3 {
             for py in 0..3 {
                 for v in self.grid[x + px][y + py].iter() {
-                    res.push(v.clone());
+                    res.insert(v.clone());
                 }
             }
         }
@@ -36,6 +39,8 @@ impl<T: Clone> Grid<T> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use super::*;
 
     #[test]
@@ -47,6 +52,25 @@ mod tests {
     fn test_grid_one() {
         let mut grid: Grid<char> = Grid::new(1, 1);
         grid.put(0, 0, 'a');
-        assert_eq!(grid.get(0, 0), vec!['a'].repeat(9));
+        let res = grid.get(0, 0);
+
+        let mut expected = HashSet::new();
+        expected.insert('a');
+
+        assert_eq!(res, expected);
+    }
+
+    #[test]
+    fn test_grid_two() {
+        let mut grid: Grid<char> = Grid::new(2, 1);
+        grid.put(0, 0, 'a');
+        grid.put(1, 0, 'b');
+        let res = grid.get(0, 0);
+
+        let mut expected = HashSet::new();
+        expected.insert('a');
+        expected.insert('b');
+
+        assert_eq!(res, expected);
     }
 }

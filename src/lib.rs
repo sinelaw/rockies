@@ -119,21 +119,26 @@ impl Universe {
     }
 
     fn collect_collisions(&mut self) -> HashSet<(usize, usize)> {
-        let mut grid: Grid<(usize, &Cell)> =
+        let mut grid: Grid<usize> =
             Grid::new(self.pixels_width as usize, self.pixels_height as usize);
-        for c @ (_, cell) in self.cells.iter().enumerate() {
-            grid.put(cell.inertia.pos.x as usize, cell.inertia.pos.y as usize, c);
+        for (cell_idx, cell) in self.cells.iter().enumerate() {
+            grid.put(
+                cell.inertia.pos.x as usize,
+                cell.inertia.pos.y as usize,
+                cell_idx,
+            );
         }
 
         let mut collisions: HashSet<(usize, usize)> = HashSet::new();
         for (cell1_idx, cell1) in self.cells.iter().enumerate() {
-            for (cell2_idx, cell2) in grid
+            for cell2_idx in grid
                 .get(cell1.inertia.pos.x as usize, cell1.inertia.pos.y as usize)
                 .iter()
             {
                 if cell1_idx == *cell2_idx {
                     continue;
                 }
+                let cell2 = self.cells[*cell2_idx];
                 // collision between infinite masses?!
                 if (cell1.inertia.mass == 0) && (cell2.inertia.mass == 0) {
                     continue;
