@@ -49,6 +49,7 @@ pub struct Universe {
     pixels_width: u32,
     pixels_height: u32,
     cells: Vec<Cell>,
+
     pixels: Vec<u32>,
     gravity: V2,
     dt: f64,
@@ -231,23 +232,26 @@ impl Universe {
             dt: 0.01,
         };
 
-        for i in 0..1 {
+        for i in 0..100 as u32 {
             uni.add_cell(Cell {
                 color: Color {
-                    r: (10 * i) % 255,
+                    r: ((10 * i) % 255) as u8,
                     g: 150,
-                    b: (155 * i) % 255,
+                    b: ((155 * i) % 255) as u8,
                 },
                 inertia: Inertia {
-                    velocity: V2 { x: 5.0, y: 0.0 },
+                    velocity: V2 { x: 1.0, y: 0.0 },
                     force: V2 { x: 0.0, y: 0.0 },
                     pos: V2 {
-                        x: i as f64 * 5.0,
-                        y: 10.0,
+                        x: (1 + i % (width - 2)) as f64,
+                        y: (10.0 + i as f64 / width as f64),
                     },
                     mass: 1,
                 },
             });
+        }
+        for x in width / 4..(3 * width / 4) {
+            uni.add_cell(uni.wall_cell(x as f64, (height / 2) as f64));
         }
         for x in 0..width {
             uni.add_cell(uni.wall_cell(x as f64, 0.0));
