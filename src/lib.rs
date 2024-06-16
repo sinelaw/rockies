@@ -235,7 +235,7 @@ impl Universe {
             let im1 = inverse_mass(cell1);
             let im2 = inverse_mass(cell2);
 
-            let penetration = distance - 1.0; // 1.0 = "radius"
+            let penetration = 1.0 - distance; // 1.0 = "radius"
             let slop = 0.02;
             let pos_correct = normal_direction
                 .cmul((penetration - slop) / (im1 + im2))
