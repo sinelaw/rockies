@@ -9,6 +9,16 @@ pub struct V2 {
 
 #[wasm_bindgen]
 impl V2 {
+    pub fn magnitude(&self) -> f64 {
+        (self.x * self.x + self.y * self.y).sqrt()
+    }
+
+    pub fn min(&self, other: V2) -> V2 {
+        V2 {
+            x: self.x.min(other.x),
+            y: self.y.min(other.y),
+        }
+    }
     pub fn plus(&self, other: V2) -> V2 {
         V2 {
             x: self.x + other.x,
