@@ -8,15 +8,17 @@ pub struct Grid<T> {
     empty_vec: Vec<T>,
 }
 
+const FACTOR: usize = 1;
+
 fn grid_index(x: usize, y: usize, height: usize) -> usize {
-    x * (height + 2) + y
+    (x / FACTOR) * (height / FACTOR + 2) + (y / FACTOR)
 }
 
 impl<T: Hash + Clone + Eq> Grid<T> {
     pub fn new(width: usize, height: usize) -> Grid<T> {
         let mut grid: Vec<Vec<T>> = Vec::new();
         grid.resize(
-            ((width + 2) * (height + 2)) as usize,
+            ((width / FACTOR + 2) * (height / FACTOR + 2)) as usize,
             Vec::with_capacity(9 * 9),
         );
         Grid {

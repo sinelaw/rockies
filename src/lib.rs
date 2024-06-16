@@ -2,7 +2,9 @@ mod grid;
 mod utils;
 mod v2;
 
-use std::{collections::HashSet, fmt};
+use std::fmt;
+
+use fnv::FnvHashSet;
 
 use grid::Grid;
 use v2::V2;
@@ -144,8 +146,8 @@ impl Universe {
             && pos.y < self.pixels_height as f64
     }
 
-    fn collect_collisions(&mut self) -> HashSet<(usize, usize)> {
-        let mut collisions: HashSet<(usize, usize)> = HashSet::new();
+    fn collect_collisions(&mut self) -> FnvHashSet<(usize, usize)> {
+        let mut collisions: FnvHashSet<(usize, usize)> = FnvHashSet::default();
 
         for (cell1_idx, cell1) in self.cells.iter().enumerate() {
             if !self.is_in_bounds(cell1.inertia.pos) {
