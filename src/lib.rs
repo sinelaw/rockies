@@ -14,7 +14,7 @@ extern crate web_sys;
 macro_rules! log {
     ( $( $t:tt )* ) => {
         //             web_sys::console::log_1(&format!( $( $t )* ).into())
-             println!( $( $t )* );
+        //   println!( $( $t )* );
     };
 }
 
@@ -138,7 +138,7 @@ impl Universe {
                 if cell1_idx == *cell2_idx {
                     continue;
                 }
-                let cell2 = self.cells[*cell2_idx];
+                let cell2 = &self.cells[*cell2_idx];
                 // collision between infinite masses?!
                 if (cell1.inertia.mass == 0) && (cell2.inertia.mass == 0) {
                     continue;

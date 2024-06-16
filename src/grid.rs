@@ -2,6 +2,8 @@ use std::collections::HashSet;
 use std::hash::Hash;
 
 pub struct Grid<T> {
+    width: usize,
+    height: usize,
     grid: Vec<Vec<Vec<T>>>,
 }
 
@@ -13,10 +15,16 @@ impl<T: Hash + Clone + Eq> Grid<T> {
             v.resize((height + 2) as usize, Vec::new());
             v
         });
-        Grid { grid }
+        Grid {
+            width,
+            height,
+            grid,
+        }
     }
 
     pub fn put(&mut self, x: usize, y: usize, value: T) {
+        assert!(x < self.width);
+        assert!(y < self.height);
         for px in 0..3 {
             for py in 0..3 {
                 self.grid[x + px][y + py].push(value.clone());
@@ -25,6 +33,8 @@ impl<T: Hash + Clone + Eq> Grid<T> {
     }
 
     pub fn get(&self, x: usize, y: usize) -> HashSet<T> {
+        assert!(x < self.width);
+        assert!(y < self.height);
         let mut res = HashSet::new();
         for px in 0..3 {
             for py in 0..3 {
