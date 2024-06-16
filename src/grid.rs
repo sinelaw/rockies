@@ -110,4 +110,35 @@ mod tests {
 
         assert_eq!(res, expected);
     }
+
+    #[test]
+    fn test_grid_two_apart() {
+        let mut grid: Grid<char> = Grid::new(6, 2);
+        grid.put(0, 0, 'a');
+        grid.put(4, 0, 'b');
+
+        {
+            let res = grid.get(0, 0);
+
+            let expected = [
+                [&vec!['a'], &vec!['a'], &vec!['a']],
+                [&vec!['a'], &vec!['a'], &vec!['a']],
+                [&vec!['a'], &vec!['a'], &vec!['a']],
+            ];
+
+            assert_eq!(res, expected);
+        }
+
+        {
+            let res = grid.get(4, 0);
+
+            let expected = [
+                [&vec!['b'], &vec!['b'], &vec!['b']],
+                [&vec!['b'], &vec!['b'], &vec!['b']],
+                [&vec!['b'], &vec!['b'], &vec!['b']],
+            ];
+
+            assert_eq!(res, expected);
+        }
+    }
 }
