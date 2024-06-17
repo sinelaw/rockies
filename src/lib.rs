@@ -52,6 +52,17 @@ pub struct Cell {
     collisions: usize,
 }
 
+impl Cell {
+    fn make_cell_static(&mut self) {
+        self.inertia.velocity = V2::zero();
+        self.inertia.pos = V2 {
+            x: round(self.inertia.pos.x) as f64,
+            y: round(self.inertia.pos.y) as f64,
+        };
+        self.inertia.mass = 0;
+    }
+}
+
 #[wasm_bindgen]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Stats {
@@ -196,7 +207,7 @@ impl Universe {
     }
 
     fn velocity_threshold(&self) -> f64 {
-        self.dt
+        self.dt / 10.0
     }
 
     fn collect_collisions(&mut self) {
@@ -268,8 +279,18 @@ impl Universe {
             let cell2 = self.cells[*cell2_idx];
             let cell1 = self.cells[*cell1_idx];
 
-            // collision between infinite masses?!
             if (cell1.inertia.mass == 0) && (cell2.inertia.mass == 0) {
+                continue;
+            }
+
+            // static cell is involved, make them both static
+            if ((cell1.inertia.mass == 0) || (cell2.inertia.mass == 0))
+                && (cell1.inertia.velocity.magnitude_sqr() < self.velocity_threshold())
+                && (cell2.inertia.velocity.magnitude_sqr() < self.velocity_threshold())
+            {
+                self.cells[*cell1_idx].make_cell_static();
+                self.cells[*cell2_idx].make_cell_static();
+
                 continue;
             }
 

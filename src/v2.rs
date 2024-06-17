@@ -9,6 +9,10 @@ pub struct V2 {
 
 #[wasm_bindgen]
 impl V2 {
+    pub fn zero() -> V2 {
+        V2 { x: 0.0, y: 0.0 }
+    }
+
     pub fn magnitude(&self) -> f64 {
         self.magnitude_sqr().sqrt()
     }
