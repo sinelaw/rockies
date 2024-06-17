@@ -27,6 +27,14 @@ impl V2 {
             y: self.y.min(other.y),
         }
     }
+
+    pub fn max(&self, other: V2) -> V2 {
+        V2 {
+            x: self.x.max(other.x),
+            y: self.y.max(other.y),
+        }
+    }
+
     pub fn plus(&self, other: V2) -> V2 {
         V2 {
             x: self.x + other.x,

@@ -12,7 +12,7 @@ const MAX_CELLS: usize = 4096;
 // A macro to provide `println!(..)`-style syntax for `console.log` logging.
 macro_rules! log {
     ( $( $t:tt )* ) => {
-        //             web_sys::console::log_1(&format!( $( $t )* ).into())
+        //    web_sys::console::log_1(&format!( $( $t )* ).into())
         //   println!( $( $t )* );
     };
 }
@@ -94,6 +94,7 @@ pub struct Player {
     w: usize,
     h: usize,
     inertia: Inertia,
+    self_force: V2,
     frame: usize,
 }
 
@@ -111,10 +112,12 @@ impl Player {
                     x: round(x as f64) as f64,
                     y: round(y as f64) as f64,
                 },
-                mass: 1,
+                mass: 10,
                 elasticity: 0.5,
                 collision_stats: 0,
             },
+            self_force: V2::zero(),
+
             frame: 0,
         }
     }
@@ -124,26 +127,26 @@ impl Player {
     }
 
     pub fn move_left(&mut self) {
-        self.inertia.force.x -= 1.0;
+        self.inertia.velocity.x -= 1.0;
+        log!("force: {:?}", self.inertia.velocity);
     }
 
     pub fn move_right(&mut self) {
-        self.inertia.force.x += 1.0;
+        self.inertia.velocity.x += 1.0;
+        log!("force: {:?}", self.inertia.velocity);
     }
 
     pub fn move_up(&mut self) {
-        self.inertia.force.y -= 1.0;
+        self.inertia.velocity.y -= 1.0;
+        log!("force: {:?}", self.inertia.velocity);
     }
 
     pub fn move_down(&mut self) {
-        self.inertia.force.y += 1.0;
+        self.inertia.velocity.y += 1.0;
+        log!("force: {:?}", self.inertia.velocity);
     }
 
     pub fn render(&self, pixels: &mut Vec<u32>, buf_width: usize, buf_height: usize) -> () {
-        if !self.in_bounds(buf_width, buf_height) {
-            return;
-        }
-
         let hammy_0: (usize, usize, &[Color]) = assets::HAMMY_0;
         let hammy_1: (usize, usize, &[Color]) = assets::HAMMY_1;
         let hammy_2: (usize, usize, &[Color]) = assets::HAMMY_2;
@@ -152,21 +155,21 @@ impl Player {
 
         for x in 0..w {
             for y in 0..h {
-                let c = colors[x + y * w];
-                if c.r == 0 && c.g == 0 && c.b == 0 {
-                    continue;
+                let py = (self.inertia.pos.y + y as f64);
+                let px = (self.inertia.pos.x + x as f64);
+                if Self::in_bounds(px, py, buf_width, buf_height) {
+                    let c = colors[x + y * w];
+                    if c.r == 0 && c.g == 0 && c.b == 0 {
+                        continue;
+                    }
+                    pixels[(py as usize) * buf_width + (px as usize)] = c.to_u32();
                 }
-                pixels[(self.inertia.pos.y as usize + y) * buf_width
-                    + (self.inertia.pos.x as usize + x)] = c.to_u32();
             }
         }
     }
 
-    fn in_bounds(&self, buf_width: usize, buf_height: usize) -> bool {
-        self.inertia.pos.x >= 0.0
-            && self.inertia.pos.y >= 0.0
-            && (self.inertia.pos.x as usize + self.w) < buf_width
-            && (self.inertia.pos.y as usize + self.h) < buf_height
+    fn in_bounds(x: f64, y: f64, buf_width: usize, buf_height: usize) -> bool {
+        x >= 0.0 && y >= 0.0 && x < buf_width as f64 && y < buf_height as f64
     }
 }
 
@@ -205,6 +208,7 @@ impl Universe {
             .player
             .inertia
             .force
+            .plus(self.player.self_force)
             .plus(self.gravity.cmul(self.player.inertia.mass as f64));
 
         for cell in &mut self.cells {
@@ -219,9 +223,12 @@ impl Universe {
             cell.inertia.force = V2::zero();
         }
         self.player.inertia.force = V2::zero();
+        // self.player.self_force = V2::zero();
     }
 
     fn update_pos(&mut self) {
+        log!("player pos: {:?}", self.player.inertia.pos);
+
         self.player.inertia.pos = self
             .player
             .inertia
@@ -267,41 +274,41 @@ impl Universe {
             log!("cell: {cell:?}");
         }
     }
-    fn max_velocity(&self) -> V2 {
-        V2 {
-            x: 0.5 / self.dt,
-            y: 0.5 / self.dt,
-        }
+    fn clamp_velocity(v: V2) -> V2 {
+        let max = V2 {
+            x: 0.5 / 0.1,
+            y: 0.5 / 0.1,
+        };
+        let min = V2 {
+            x: -0.5 / 0.1,
+            y: -0.5 / 0.1,
+        };
+        return v.min(max).max(min);
     }
 
     fn update_vel(&mut self) {
-        let max_vel = self.max_velocity();
-
-        self.player.inertia.velocity = self
-            .player
-            .inertia
-            .velocity
-            .plus(
+        self.player.inertia.velocity = Self::clamp_velocity(
+            self.player.inertia.velocity.plus(
                 self.player
                     .inertia
                     .force
                     .cdiv(self.player.inertia.mass as f64)
                     .cmul(self.dt),
-            )
-            .min(max_vel);
+            ),
+        );
+
+        //        log!("update_vel: player: {:?}", self.player.inertia);
 
         for cell in &mut self.cells {
             if cell.inertia.mass > 0 {
-                cell.inertia.velocity = cell
-                    .inertia
-                    .velocity
-                    .plus(
+                cell.inertia.velocity = Self::clamp_velocity(
+                    cell.inertia.velocity.plus(
                         cell.inertia
                             .force
                             .cdiv(cell.inertia.mass as f64)
                             .cmul(self.dt),
-                    )
-                    .min(max_vel)
+                    ),
+                );
             }
         }
     }
@@ -369,9 +376,8 @@ impl Universe {
 
                 self.collisions_list.push((*cell1_idx, *cell2_idx));
 
-                log!("collision: {key:?} {normal:?} {dot:?}");
-                log!("cell1: {cell1:?}");
-                log!("cell2: {cell2:?}");
+                // log!("cell1: {cell1:?}");
+                // log!("cell2: {cell2:?}");
 
                 // println!("collisions: {:?}", collisions);
             }
@@ -396,19 +402,54 @@ impl Universe {
                 continue;
             }
 
-            let (new_inertia1, new_inertia2) = collide(inertia1, inertia2);
+            let (new_vel1, new_vel2) = collide(inertia1, inertia2);
 
-            self.cells[cell1_idx.index].inertia = new_inertia1;
-            self.cells[cell2_idx.index].inertia = new_inertia2;
-
-            log!("rel_velocity: {rel_velocity:?}");
-            log!("norm: {normal:?}");
-            log!("collision_vel: {collision_vel:?}");
-            log!("pos_correct: {pos_correct:?}");
-
-            log!("cell1: {cell1:?}");
-            log!("cell2: {cell2:?}");
+            self.cells[cell1_idx.index].inertia.velocity = new_vel1;
+            self.cells[cell2_idx.index].inertia.velocity = new_vel2;
         }
+    }
+
+    fn collide_player(&mut self) {
+        let px = self.player.inertia.pos.x + self.player.w as f64 / 2.0;
+        let py = self.player.inertia.pos.y + self.player.h as f64 / 2.0;
+
+        if !self.is_in_bounds(V2 { x: px, y: py }) {
+            return;
+        };
+        let (neighbors_count, neighbors) = self.grid.get(px as usize, py as usize);
+        if neighbors_count == 0 {
+            return;
+        }
+        let mut new_vel = V2::zero();
+        for cell_idx in neighbors.iter() {
+            let cell = &self.cells[cell_idx.index];
+            let cell_mass = cell.inertia.mass;
+            let player_inertia = Inertia {
+                pos: V2 { x: px, y: py },
+                ..self.player.inertia
+            };
+            let (cell_vel, player_vel) = collide(&cell.inertia, &player_inertia);
+            log!(
+                "collide cell_vel: {:?}, cell before: {:?}",
+                cell_vel,
+                cell.inertia
+            );
+            self.cells[cell_idx.index].inertia.velocity = cell_vel;
+            new_vel = new_vel.plus(player_vel);
+
+            log!("collide player: {:?}", player_inertia);
+            log!("new_vel: {:?}", new_vel);
+            log!("player_vel: {:?}", player_vel);
+            log!("pos player: {:?}", (px, py));
+            break;
+        }
+        self.player.inertia.velocity = Self::clamp_velocity(new_vel);
+
+        log!("final player: {:?}", self.player.inertia);
+        log!("px,py: {px},{py} neighbors: {neighbors_count}");
+        log!("--------------------");
+
+        //log!("final player: {:?}", self.player.inertia);
     }
 
     pub fn tick(&mut self) {
@@ -416,12 +457,13 @@ impl Universe {
         self.reset_cells();
 
         for _ in 0..((1.0 / self.dt) as usize) {
-            self.log_cells();
+            //self.log_cells();
 
             self.calc_forces();
             self.update_vel();
 
             self.calc_collisions();
+            self.collide_player();
             self.update_pos();
             self.zero_forces();
         }
@@ -483,7 +525,7 @@ impl Universe {
             collisions_list: Vec::new(),
             collisions_map: IntPairSet::new(MAX_CELLS),
 
-            player: Player::new(1, 1),
+            player: Player::new(10, 10),
         };
 
         for x in width / 4..(3 * width / 4) {
@@ -543,7 +585,7 @@ impl Universe {
     }
 }
 
-fn collide(inertia1: &Inertia, inertia2: &Inertia) -> (Inertia, Inertia) {
+fn collide(inertia1: &Inertia, inertia2: &Inertia) -> (V2, V2) {
     let rel_velocity = inertia1.velocity.minus(inertia2.velocity);
     let normal = inertia1.pos.minus(inertia2.pos);
     // coefficient of restitution
@@ -567,15 +609,14 @@ fn collide(inertia1: &Inertia, inertia2: &Inertia) -> (Inertia, Inertia) {
 
     let impulse = collision_vel / (im1 + im2);
 
-    let new_inertia1 = Inertia {
-        velocity: inertia1.velocity.plus(normal_direction.cmul(impulse * im1)),
-        ..*inertia1
-    };
-    let new_inertia2 = Inertia {
-        velocity: inertia2
+    /*  log!("rel_velocity: {rel_velocity:?}");
+    log!("norm: {normal:?}");
+    log!("collision_vel: {collision_vel:?}"); */
+
+    (
+        inertia1.velocity.plus(normal_direction.cmul(impulse * im1)),
+        inertia2
             .velocity
             .minus(normal_direction.cmul(impulse * im2)),
-        ..*inertia2
-    };
-    (new_inertia1, new_inertia2)
+    )
 }

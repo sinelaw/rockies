@@ -26,7 +26,7 @@ impl IntPairSet {
     }
 
     pub fn clear(&mut self) {
-        self.version += 1;
+        self.version = self.version.wrapping_add(1);
     }
 }
 
