@@ -1,3 +1,4 @@
+use crate::assets;
 use crate::color::Color;
 use crate::grid::Grid;
 use crate::int_pair_set::IntPairSet;
@@ -89,6 +90,85 @@ impl Stats {
     }
 }
 
+pub struct Player {
+    w: usize,
+    h: usize,
+    inertia: Inertia,
+    frame: usize,
+}
+
+impl Player {
+    fn new(x: usize, y: usize) -> Self {
+        let (w, h, _): (usize, usize, &[Color]) = assets::HAMMY_0;
+
+        Player {
+            w,
+            h,
+            inertia: Inertia {
+                velocity: V2::zero(),
+                force: V2::zero(),
+                pos: V2 {
+                    x: round(x as f64) as f64,
+                    y: round(y as f64) as f64,
+                },
+                mass: 1,
+                elasticity: 0.5,
+            },
+            frame: 0,
+        }
+    }
+
+    pub fn next_frame(&mut self) {
+        self.frame += 1;
+    }
+
+    pub fn move_left(&mut self) {
+        self.inertia.force.x -= 1.0;
+    }
+
+    pub fn move_right(&mut self) {
+        self.inertia.force.x += 1.0;
+    }
+
+    pub fn move_up(&mut self) {
+        self.inertia.force.y -= 1.0;
+    }
+
+    pub fn move_down(&mut self) {
+        self.inertia.force.y += 1.0;
+    }
+
+    pub fn render(&self, pixels: &mut Vec<u32>, buf_width: usize, buf_height: usize) -> () {
+        if !self.in_bounds(buf_width, buf_height) {
+            return;
+        }
+
+        let hammy_0: (usize, usize, &[Color]) = assets::HAMMY_0;
+        let hammy_1: (usize, usize, &[Color]) = assets::HAMMY_1;
+        let hammy_2: (usize, usize, &[Color]) = assets::HAMMY_2;
+        let hammies = [hammy_0, hammy_1, hammy_2];
+        let (w, h, colors) = hammies[self.frame % 3];
+
+        for x in 0..w {
+            for y in 0..h {
+                let c = colors[x + y * w];
+                if c.r == 0 && c.g == 0 && c.b == 0 {
+                    continue;
+                }
+                pixels[(self.inertia.pos.y as usize + y) * buf_width
+                    + (self.inertia.pos.x as usize + x)] = c.to_u32();
+            }
+        }
+    }
+
+    fn in_bounds(&self, buf_width: usize, buf_height: usize) -> bool {
+        self.inertia.pos.x >= 0.0
+            && self.inertia.pos.y >= 0.0
+            && (self.inertia.pos.x as usize + self.w) < buf_width
+            && (self.inertia.pos.y as usize + self.h) < buf_height
+    }
+}
+
 pub struct Universe {
     pub width: usize,
     pub height: usize,
@@ -103,6 +183,8 @@ pub struct Universe {
     gravity: V2,
     dt: f64,
     stats: Stats,
+
+    pub player: Player,
 }
 
 fn inverse_mass(cell: Cell) -> f64 {
@@ -118,6 +200,12 @@ pub fn round(x: f64) -> i32 {
 
 impl Universe {
     fn calc_forces(&mut self) {
+        self.player.inertia.force = self
+            .player
+            .inertia
+            .force
+            .plus(self.gravity.cmul(self.player.inertia.mass as f64));
+
         for cell in &mut self.cells {
             if cell.inertia.mass > 0 {
                 cell.inertia.force = self.gravity.cmul(cell.inertia.mass as f64);
@@ -129,9 +217,15 @@ impl Universe {
         for cell in &mut self.cells {
             cell.inertia.force = V2::zero();
         }
+        self.player.inertia.force = V2::zero();
     }
 
     fn update_pos(&mut self) {
+        self.player.inertia.pos = self
+            .player
+            .inertia
+            .pos
+            .plus(self.player.inertia.velocity.cmul(self.dt));
         // some previously static cells may now need to be in moving_cells
         self.moving_cells.clear();
         for cell in &self.cells {
@@ -180,6 +274,20 @@ impl Universe {
 
     fn update_vel(&mut self) {
         let max_vel = self.max_velocity();
+
+        self.player.inertia.velocity = self
+            .player
+            .inertia
+            .velocity
+            .plus(
+                self.player
+                    .inertia
+                    .force
+                    .cdiv(self.player.inertia.mass as f64)
+                    .cmul(self.dt),
+            )
+            .min(max_vel);
+
         for cell in &mut self.cells {
             if cell.inertia.mass > 0 {
                 cell.inertia.velocity = cell
@@ -413,6 +521,8 @@ impl Universe {
 
             collisions_list: Vec::new(),
             collisions_map: IntPairSet::new(MAX_CELLS),
+
+            player: Player::new(1, 1),
         };
 
         for x in width / 4..(3 * width / 4) {

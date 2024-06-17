@@ -71,24 +71,24 @@ impl Game {
                 cell.color.to_u32()
             }
         }
-        let hammy_0: (usize, usize, &[Color]) = assets::HAMMY_0;
-        let hammy_1: (usize, usize, &[Color]) = assets::HAMMY_1;
-        let hammy_2: (usize, usize, &[Color]) = assets::HAMMY_2;
-        let hammy_3: (usize, usize, &[Color]) = assets::HAMMY_3;
-        let hammies = [hammy_0, hammy_1, hammy_2, hammy_3];
-        for hammy in hammies {
-            let (w, h, colors) = hammy;
-            for x in 0..w {
-                for y in 0..h {
-                    let c = colors[x + y * w];
-                    self.pixels[y * self.width + x] = c.to_u32();
-                }
-            }
-        }
+        self.universe
+            .player
+            .render(&mut self.pixels, self.width, self.height);
     }
 
     pub fn text_render(&self) -> String {
         self.to_string()
+    }
+
+    pub fn key(&mut self, key: char) {
+        self.universe.player.next_frame();
+        match key {
+            'a' => self.universe.player.move_left(),
+            'd' => self.universe.player.move_right(),
+            'w' => self.universe.player.move_up(),
+            's' => self.universe.player.move_down(),
+            _ => (),
+        }
     }
 
     pub fn click(&mut self, x: i32, y: i32) {

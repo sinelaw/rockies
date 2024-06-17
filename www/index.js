@@ -117,3 +117,8 @@ canvas.ontouchmove = (e) => {
     let y = e.touches[0].clientY - canvas.offsetTop;
     game.click(x / (CELL_SIZE + 1), y / (CELL_SIZE + 1));
 };
+
+document.onkeydown = (e) => {
+    e.preventDefault();
+    game.key(e.key);
+};

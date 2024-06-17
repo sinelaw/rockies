@@ -80,10 +80,10 @@ impl<T: Default + Copy + Hash + Clone + Eq> Grid<T> {
             }
         }
     }
-
+    /*
     pub fn clear(&mut self) {
         self.version += 1;
-    }
+    } */
 
     pub fn get(&self, x: usize, y: usize) -> (usize, &[T]) {
         assert!(x < self.width);
@@ -150,7 +150,7 @@ mod tests {
             assert_eq!(items[0..count], ['b'][..]);
         }
     }
-
+    /*
     #[test]
     fn test_grid_clear() {
         let mut grid: Grid<char> = Grid::new(2, 2);
@@ -165,5 +165,5 @@ mod tests {
         let (count, items) = grid.get(1, 1);
         assert_eq!(count, 1);
         assert_eq!(items[0..count], ['b'][..]);
-    }
+    } */
 }
