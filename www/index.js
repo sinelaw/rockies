@@ -11,7 +11,10 @@ const universe = Universe.new(64, 64);
 const width = universe.width();
 const height = universe.height();
 
+const cells_count = document.getElementById("cells-count");
+const collisions_count = document.getElementById("collisions-count");
 const canvas = document.getElementById("the-canvas");
+
 canvas.height = (CELL_SIZE + 1) * height + 1;
 canvas.width = (CELL_SIZE + 1) * width + 1;
 
@@ -24,6 +27,9 @@ const renderLoop = () => {
 
     drawGrid();
     drawPixels();
+
+    cells_count.textContent = universe.cells_count();
+    collisions_count.textContent = universe.collisions_count();
 
     requestAnimationFrame(renderLoop);
 };

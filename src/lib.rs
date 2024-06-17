@@ -49,16 +49,22 @@ pub struct Cell {
     inertia: Inertia,
 }
 
+pub struct Stats {
+    collisions_count: usize,
+}
+
 #[wasm_bindgen]
 pub struct Universe {
     pixels_width: u32,
     pixels_height: u32,
     cells: Vec<Cell>,
+    moving_cells: Vec<usize>,
 
     grid: Grid<usize>,
     pixels: Vec<u32>,
     gravity: V2,
     dt: f64,
+    stats: Stats,
 }
 
 fn inverse_mass(cell: Cell) -> f64 {
@@ -99,15 +105,28 @@ impl Universe {
         for cell in &mut self.cells {
             cell.inertia.pos = cell.inertia.pos.plus(cell.inertia.velocity.cmul(self.dt));
         }
+
+        self.moving_cells.clear();
+
         for cell in &self.cells {
-            if self.is_in_bounds(cell.inertia.pos) {
-                // store in the grid
-                self.grid.put(
-                    cell.inertia.pos.x as usize,
-                    cell.inertia.pos.y as usize,
-                    cell.index,
-                );
+            if !self.is_in_bounds(cell.inertia.pos) {
+                continue;
             }
+            // cell is in bounds
+            // store in the grid
+            self.grid.put(
+                cell.inertia.pos.x as usize,
+                cell.inertia.pos.y as usize,
+                cell.index,
+            );
+            // moving cell?
+            if cell.inertia.velocity.magnitude_sqr() < self.velocity_threshold() {
+                continue;
+            }
+            if cell.inertia.mass == 0 {
+                continue;
+            }
+            self.moving_cells.push(cell.index);
         }
     }
 
@@ -147,29 +166,31 @@ impl Universe {
             && pos.y < self.pixels_height as f64
     }
 
+    fn velocity_threshold(&self) -> f64 {
+        self.dt
+    }
+
     fn collect_collisions(&mut self) -> Vec<(usize, usize)> {
         let mut collisions_list: Vec<(usize, usize)> = Vec::new();
         let mut collisions_map = IntPairSet::new(self.cells.len());
 
-        for (cell1_idx, cell1) in self.cells.iter().enumerate() {
-            if !self.is_in_bounds(cell1.inertia.pos) {
-                continue;
-            }
+        for cell1_idx in self.moving_cells.iter() {
+            let cell1 = &self.cells[*cell1_idx];
             let neighbors = self
                 .grid
                 .get(cell1.inertia.pos.x as usize, cell1.inertia.pos.y as usize);
             for ns in neighbors {
                 for ns2 in ns {
                     for cell2_idx in ns2 {
-                        if cell1_idx == *cell2_idx {
+                        if *cell1_idx == *cell2_idx {
                             continue;
                         }
 
-                        if collisions_map.contains(cell1_idx, *cell2_idx) {
+                        if collisions_map.contains(*cell1_idx, *cell2_idx) {
                             continue;
                         }
 
-                        collisions_map.put(cell1_idx, *cell2_idx);
+                        collisions_map.put(*cell1_idx, *cell2_idx);
 
                         let cell2 = &self.cells[*cell2_idx];
                         // collision between infinite masses?!
@@ -201,7 +222,7 @@ impl Universe {
                             continue;
                         }
 
-                        collisions_list.push((cell1_idx, *cell2_idx));
+                        collisions_list.push((*cell1_idx, *cell2_idx));
 
                         log!("collision: {key:?} {normal:?} {dot:?}");
                         log!("cell1: {cell1:?}");
@@ -217,6 +238,7 @@ impl Universe {
 
     fn calc_collisions(&mut self) {
         let collisions = self.collect_collisions();
+        self.stats.collisions_count = collisions.len();
         for (cell1_idx, cell2_idx) in collisions {
             let cell2 = self.cells[cell2_idx];
             let cell1 = self.cells[cell1_idx];
@@ -229,7 +251,7 @@ impl Universe {
             let rel_velocity = cell1.inertia.velocity.minus(cell2.inertia.velocity);
             let normal = cell1.inertia.pos.minus(cell2.inertia.pos);
             // coefficient of restitution
-            let e = 0.99;
+            let e = 0.9;
             let collision_vel: f64 = rel_velocity.dot(normal) as f64 * -(1.0 + e);
 
             // for simplicity the rest here treats them as circles, not boxes:
@@ -344,6 +366,7 @@ impl Universe {
             pixels_width: width,
             pixels_height: height,
             cells: Vec::new(),
+            moving_cells: Vec::new(),
             grid: Grid::new(width as usize, height as usize),
             pixels: {
                 let mut pixels = Vec::with_capacity((width * height) as usize);
@@ -352,6 +375,9 @@ impl Universe {
             },
             gravity: V2 { x: 0.0, y: 0.1 },
             dt: 0.01,
+            stats: Stats {
+                collisions_count: 0,
+            },
         };
 
         for x in width / 4..(3 * width / 4) {
@@ -380,7 +406,12 @@ impl Universe {
                 continue;
             }
             let pixel_idx = (y as u32 * self.pixels_width + x as u32) as usize;
-            self.pixels[pixel_idx] = cell.color.to_u32()
+            self.pixels[pixel_idx] =
+                if cell.inertia.velocity.magnitude_sqr() < self.velocity_threshold() {
+                    0x000000
+                } else {
+                    cell.color.to_u32()
+                }
         }
     }
 
@@ -398,6 +429,14 @@ impl Universe {
 
     pub fn pixels(&self) -> *const u32 {
         self.pixels.as_ptr()
+    }
+
+    pub fn cells_count(&self) -> usize {
+        self.cells.len()
+    }
+
+    pub fn collisions_count(&self) -> usize {
+        self.stats.collisions_count
     }
 }
 
