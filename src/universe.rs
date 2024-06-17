@@ -1,3 +1,4 @@
+use crate::color::Color;
 use crate::grid::Grid;
 use crate::int_pair_set::IntPairSet;
 use crate::v2::V2;
@@ -13,19 +14,6 @@ macro_rules! log {
         //             web_sys::console::log_1(&format!( $( $t )* ).into())
         //   println!( $( $t )* );
     };
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Color {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
-}
-
-impl Color {
-    pub fn to_u32(&self) -> u32 {
-        (self.r as u32 * 256 * 256) + (self.g as u32 * 256) + self.b as u32
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

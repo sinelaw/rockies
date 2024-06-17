@@ -1,11 +1,14 @@
 use std::fmt;
 
+mod assets;
+mod color;
 mod grid;
 mod int_pair_set;
 mod universe;
 mod utils;
 mod v2;
-use universe::{round, Cell, CellIndex, Color, Inertia, Stats, Universe};
+use color::Color;
+use universe::{round, Cell, CellIndex, Inertia, Stats, Universe};
 
 use v2::V2;
 use wasm_bindgen::prelude::*;
