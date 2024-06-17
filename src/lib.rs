@@ -78,7 +78,7 @@ impl Game {
             return;
         }
         // unstick some cells
-        self.universe.unstick_cells(x as usize, y as usize);
+        self.universe.unstick_cells(x as usize, y as usize, 3);
 
         // add a new cell
         let r = (x % 17) as f64 / 17.0 - 1.0;
@@ -97,6 +97,7 @@ impl Game {
                     y: y as f64 + r,
                 },
                 mass: 1,
+                elasticity: 0.5,
             },
             collisions: 0,
         });

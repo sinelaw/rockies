@@ -34,6 +34,7 @@ pub struct Inertia {
     pub force: V2,
     pub pos: V2,
     pub mass: i32,
+    pub elasticity: f64, // 0..1
 }
 
 #[derive(Default, Hash, Eq, Clone, Copy, Debug, PartialEq)]
@@ -300,7 +301,9 @@ impl Universe {
             let rel_velocity = cell1.inertia.velocity.minus(cell2.inertia.velocity);
             let normal = cell1.inertia.pos.minus(cell2.inertia.pos);
             // coefficient of restitution
-            let e = 0.9;
+            let e = cell1.inertia.elasticity.min(cell2.inertia.elasticity);
+
+            // let collision_vel = rel_velocity.dot(normal);
             let collision_vel: f64 = rel_velocity.dot(normal) as f64 * -(1.0 + e);
 
             // for simplicity the rest here treats them as circles, not boxes:
@@ -403,6 +406,7 @@ impl Universe {
                 force: V2::zero(),
                 pos: V2 { x, y },
                 mass: 0,
+                elasticity: 1.0, // allow other mass to determine
             },
             collisions: 0,
         }
@@ -450,20 +454,32 @@ impl Universe {
         res
     }
 
-    pub fn unstick_cells(&mut self, x: usize, y: usize) {
-        let (neighbors_count, neighbors) = self.grid.get(x, y);
-        let w = self.width as f64;
-        for cell_idx in &neighbors[0..neighbors_count] {
-            let cell = &mut self.cells[cell_idx.index];
-            if cell.inertia.mass > 0 {
-                continue;
+    pub fn unstick_cells(&mut self, x: usize, y: usize, radius: usize) {
+        let r = radius as i32;
+        for i in -r..r {
+            for j in -r..r {
+                let (px, py) = (x as i32 + i, y as i32 + j);
+                if !self.is_in_bounds(V2 {
+                    x: px as f64,
+                    y: py as f64,
+                }) {
+                    continue;
+                }
+                let (neighbors_count, neighbors) = self.grid.get(px as usize, py as usize);
+                let w = self.width as f64;
+                for cell_idx in &neighbors[0..neighbors_count] {
+                    let cell = &mut self.cells[cell_idx.index];
+                    if cell.inertia.mass > 0 {
+                        continue;
+                    }
+                    cell.unset_static();
+                    self.moving_cells.push(*cell_idx);
+                    cell.inertia.velocity = V2 {
+                        x: 2.0 * (x as f64 - w / 2.0) / w,
+                        y: -1.0, //(cell_idx.index % 10 - 5) as f64 / 10000.0 * self.dt,
+                    };
+                }
             }
-            cell.unset_static();
-            self.moving_cells.push(*cell_idx);
-            cell.inertia.velocity = V2 {
-                x: 2.0 * (x as f64 - w / 2.0) / w,
-                y: -1.0, //(cell_idx.index % 10 - 5) as f64 / 10000.0 * self.dt,
-            };
         }
     }
 }
