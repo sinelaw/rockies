@@ -11,6 +11,7 @@ const universe = Universe.new(64, 64);
 const width = universe.width();
 const height = universe.height();
 
+const ticks = document.getElementById("ticks");
 const cells_count = document.getElementById("cells-count");
 const collisions_count = document.getElementById("collisions-count");
 const collision_pairs_tested = document.getElementById("collision-pairs-tested");
@@ -32,9 +33,12 @@ const renderLoop = () => {
 
     let stats = universe.stats();
 
+    ticks.textContent = stats.ticks();
     cells_count.textContent = stats.cells_count();
-    collisions_count.textContent = stats.collisions_count();
-    collision_pairs_tested.textContent = stats.collision_pairs_tested();
+    collisions_count.textContent = (stats.collisions_count() / stats.ticks()) | 0;
+    collision_pairs_tested.textContent = (stats.collision_pairs_tested() / stats.ticks()) | 0;
+
+
 
     requestAnimationFrame(renderLoop);
 };

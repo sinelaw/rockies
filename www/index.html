@@ -21,10 +21,15 @@
 
 <body>
   <noscript>This page contains webassembly and javascript content, please enable javascript in your browser.</noscript>
-  <canvas id="the-canvas"></canvas>
-  <div>Collisions: <span id="collisions-count"></span></div>
-  <div>Cells: <span id="cells-count"></span></div>
-  <div>Collision pairs tested: <span id="collision-pairs-tested"></span></div>
+  <div>
+    <canvas id="the-canvas"></canvas>
+    <div style="width: 100%; justify-content: left; align-items: left;">
+      <div>Ticks: <span id="ticks"></span></div>
+      <div>Cells: <span id="cells-count"></span></div>
+      <div>Collisions: <span id="collisions-count"></span></div>
+      <div>Collision pairs tested: <span id="collision-pairs-tested"></span></div>
+    </div>
+  </div>
   <script src="./bootstrap.js"></script>
 </body>
 

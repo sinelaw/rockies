@@ -54,6 +54,7 @@ pub struct Cell {
 #[wasm_bindgen]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Stats {
+    ticks: usize,
     cells_count: usize,
     collisions_count: usize,
     collision_pairs_tested: usize,
@@ -61,6 +62,10 @@ pub struct Stats {
 
 #[wasm_bindgen]
 impl Stats {
+    pub fn ticks(&self) -> usize {
+        self.ticks
+    }
+
     pub fn cells_count(&self) -> usize {
         self.cells_count
     }
@@ -187,7 +192,6 @@ impl Universe {
     fn collect_collisions(&mut self) {
         self.collisions_map.clear();
         self.collisions_list.clear();
-        self.stats.collision_pairs_tested = 0;
 
         for (cell1_idx, cell1) in self.cells.iter().enumerate() {
             if cell1.inertia.mass > 0
@@ -253,7 +257,7 @@ impl Universe {
 
     fn calc_collisions(&mut self) {
         self.collect_collisions();
-        self.stats.collisions_count = self.collisions_list.len();
+        self.stats.collisions_count += self.collisions_list.len();
         for (cell1_idx, cell2_idx) in self.collisions_list.iter() {
             let cell2 = self.cells[*cell2_idx];
             let cell1 = self.cells[*cell1_idx];
@@ -318,6 +322,7 @@ impl Universe {
     }
 
     pub fn tick(&mut self) {
+        self.stats.ticks += 1;
         self.render();
 
         for _ in 0..((1.0 / self.dt) as usize) {
@@ -394,6 +399,7 @@ impl Universe {
             gravity: V2 { x: 0.0, y: 0.1 },
             dt: 0.01,
             stats: Stats {
+                ticks: 0,
                 cells_count: 0,
                 collisions_count: 0,
                 collision_pairs_tested: 0,
