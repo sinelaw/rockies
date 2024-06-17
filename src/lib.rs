@@ -418,6 +418,12 @@ impl Universe {
     }
 
     pub fn click(&mut self, x: u32, y: u32) {
+        if !self.is_in_bounds(V2 {
+            x: x as f64,
+            y: y as f64,
+        }) {
+            return;
+        }
         // unstick some cells
         let (neighbors_count, neighbors) = self.grid.get(x as usize, y as usize);
         let w = self.pixels_width as f64;
