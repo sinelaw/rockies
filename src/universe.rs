@@ -316,12 +316,6 @@ impl Universe {
             let im1 = inverse_mass(cell1);
             let im2 = inverse_mass(cell2);
 
-            let penetration = 1.0 - distance; // 1.0 = "radius"
-            let slop = 0.02;
-            let pos_correct = normal_direction
-                .cmul((penetration - slop) / (im1 + im2))
-                .cmul(0.4);
-
             let impulse = collision_vel / (im1 + im2);
 
             {
@@ -330,7 +324,7 @@ impl Universe {
                     .inertia
                     .velocity
                     .plus(normal_direction.cmul(impulse * im1));
-                cell.inertia.pos = cell1.inertia.pos.plus(pos_correct.cmul(im1));
+                //cell.inertia.pos = cell1.inertia.pos.plus(pos_correct.cmul(im1));
                 cell.collisions += 1;
             }
             {
@@ -339,7 +333,7 @@ impl Universe {
                     .inertia
                     .velocity
                     .minus(normal_direction.cmul(impulse * im2));
-                cell.inertia.pos = cell2.inertia.pos.minus(pos_correct.cmul(im2));
+                //cell.inertia.pos = cell2.inertia.pos.minus(pos_correct.cmul(im2));
                 cell.collisions += 1;
             }
 
