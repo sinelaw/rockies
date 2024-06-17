@@ -146,7 +146,7 @@ impl Universe {
 
     fn zero_forces(&mut self) {
         for cell in &mut self.cells {
-            cell.inertia.force = V2 { x: 0.0, y: 0.0 };
+            cell.inertia.force = V2::zero();
         }
     }
 
@@ -184,8 +184,15 @@ impl Universe {
             log!("cell: {cell:?}");
         }
     }
+    fn max_velocity(&self) -> V2 {
+        V2 {
+            x: 0.5 / self.dt,
+            y: 0.5 / self.dt,
+        }
+    }
 
     fn update_vel(&mut self) {
+        let max_vel = self.max_velocity();
         for cell in &mut self.cells {
             if cell.inertia.mass > 0 {
                 cell.inertia.velocity = cell
@@ -197,10 +204,7 @@ impl Universe {
                             .cdiv(cell.inertia.mass as f64)
                             .cmul(self.dt),
                     )
-                    .min(V2 {
-                        x: 0.5 / self.dt,
-                        y: 0.5 / self.dt,
-                    })
+                    .min(max_vel)
             }
         }
     }
@@ -404,8 +408,8 @@ impl Universe {
             index: CellIndex { index: 0 },
             color: Color { r: 150, g: 0, b: 0 },
             inertia: Inertia {
-                velocity: V2 { x: 0.0, y: 0.0 },
-                force: V2 { x: 0.0, y: 0.0 },
+                velocity: V2::zero(),
+                force: V2::zero(),
                 pos: V2 { x, y },
                 mass: 0,
             },
@@ -414,6 +418,22 @@ impl Universe {
     }
 
     pub fn click(&mut self, x: u32, y: u32) {
+        // unstick some cells
+        let (neighbors_count, neighbors) = self.grid.get(x as usize, y as usize);
+        let w = self.pixels_width as f64;
+        for cell_idx in &neighbors[0..neighbors_count] {
+            let cell = &mut self.cells[cell_idx.index];
+            if cell.inertia.mass > 0 {
+                continue;
+            }
+            cell.inertia.mass = 1;
+            cell.inertia.velocity = V2 {
+                x: 2.0 * (x as f64 - w / 2.0) / w,
+                y: -1.0, //(cell_idx.index % 10 - 5) as f64 / 10000.0 * self.dt,
+            };
+        }
+
+        // add a new cell
         self.add_cell(Cell {
             index: CellIndex { index: 0 },
             color: Color {
@@ -422,8 +442,8 @@ impl Universe {
                 b: ((155 * y) % 255) as u8,
             },
             inertia: Inertia {
-                velocity: V2 { x: 0.0, y: 0.0 },
-                force: V2 { x: 0.0, y: 0.0 },
+                velocity: V2::zero(),
+                force: V2::zero(),
                 pos: V2 {
                     x: x as f64,
                     y: y as f64,
