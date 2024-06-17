@@ -13,6 +13,8 @@ const height = universe.height();
 
 const cells_count = document.getElementById("cells-count");
 const collisions_count = document.getElementById("collisions-count");
+const collision_pairs_tested = document.getElementById("collision-pairs-tested");
+
 const canvas = document.getElementById("the-canvas");
 
 canvas.height = (CELL_SIZE + 1) * height + 1;
@@ -28,8 +30,11 @@ const renderLoop = () => {
     drawGrid();
     drawPixels();
 
-    cells_count.textContent = universe.cells_count();
-    collisions_count.textContent = universe.collisions_count();
+    let stats = universe.stats();
+
+    cells_count.textContent = stats.cells_count();
+    collisions_count.textContent = stats.collisions_count();
+    collision_pairs_tested.textContent = stats.collision_pairs_tested();
 
     requestAnimationFrame(renderLoop);
 };

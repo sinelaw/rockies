@@ -51,8 +51,27 @@ pub struct Cell {
     inertia: Inertia,
 }
 
+#[wasm_bindgen]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Stats {
+    cells_count: usize,
     collisions_count: usize,
+    collision_pairs_tested: usize,
+}
+
+#[wasm_bindgen]
+impl Stats {
+    pub fn cells_count(&self) -> usize {
+        self.cells_count
+    }
+
+    pub fn collisions_count(&self) -> usize {
+        self.collisions_count
+    }
+
+    pub fn collision_pairs_tested(&self) -> usize {
+        self.collision_pairs_tested
+    }
 }
 
 #[wasm_bindgen]
@@ -168,6 +187,7 @@ impl Universe {
     fn collect_collisions(&mut self) {
         self.collisions_map.clear();
         self.collisions_list.clear();
+        self.stats.collision_pairs_tested = 0;
 
         for (cell1_idx, cell1) in self.cells.iter().enumerate() {
             if cell1.inertia.mass > 0
@@ -189,8 +209,9 @@ impl Universe {
                         if self.collisions_map.contains(cell1_idx, *cell2_idx) {
                             continue;
                         }
-
                         self.collisions_map.put(cell1_idx, *cell2_idx);
+
+                        self.stats.collision_pairs_tested += 1;
 
                         let cell2 = &self.cells[*cell2_idx];
                         // collision between infinite masses?!
@@ -317,6 +338,7 @@ impl Universe {
         if self.cells.len() == MAX_CELLS {
             return;
         }
+        self.stats.cells_count += 1;
         self.cells.push(Cell {
             index: self.cells.len(),
             ..cell
@@ -372,7 +394,9 @@ impl Universe {
             gravity: V2 { x: 0.0, y: 0.1 },
             dt: 0.01,
             stats: Stats {
+                cells_count: 0,
                 collisions_count: 0,
+                collision_pairs_tested: 0,
             },
 
             collisions_list: Vec::new(),
@@ -434,8 +458,8 @@ impl Universe {
         self.cells.len()
     }
 
-    pub fn collisions_count(&self) -> usize {
-        self.stats.collisions_count
+    pub fn stats(&self) -> Stats {
+        self.stats
     }
 }
 
