@@ -8,6 +8,7 @@ mod universe;
 mod utils;
 mod v2;
 use color::Color;
+
 use universe::{round, Cell, CellIndex, Inertia, Stats, Universe};
 
 use v2::V2;
@@ -68,6 +69,20 @@ impl Game {
                 0xFF0000
             } else {
                 cell.color.to_u32()
+            }
+        }
+        let hammy_0: (usize, usize, &[Color]) = assets::HAMMY_0;
+        let hammy_1: (usize, usize, &[Color]) = assets::HAMMY_1;
+        let hammy_2: (usize, usize, &[Color]) = assets::HAMMY_2;
+        let hammy_3: (usize, usize, &[Color]) = assets::HAMMY_3;
+        let hammies = [hammy_0, hammy_1, hammy_2, hammy_3];
+        for hammy in hammies {
+            let (w, h, colors) = hammy;
+            for x in 0..w {
+                for y in 0..h {
+                    let c = colors[x + y * w];
+                    self.pixels[y * self.width + x] = c.to_u32();
+                }
             }
         }
     }

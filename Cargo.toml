@@ -31,6 +31,9 @@ wasm-bindgen-test = "0.3.34"
 [build-dependencies]
 image = "0.25.1"
 
+itertools = "0.13.0"
+
+
 [profile.release]
 # Tell `rustc` to optimize for small code size.
 opt-level = "s"
