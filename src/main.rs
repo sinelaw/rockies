@@ -10,6 +10,7 @@ fn main() -> () {
 
     for _ in 0..500 {
         uni.tick();
+        uni.stats();
         //println!("{}\n\n", uni.text_render());
         //std::thread::sleep(std::time::Duration::from_millis(10));
     }

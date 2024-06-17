@@ -62,6 +62,15 @@ pub struct Stats {
 
 #[wasm_bindgen]
 impl Stats {
+    pub fn zero() -> Stats {
+        Stats {
+            ticks: 0,
+            cells_count: 0,
+            collisions_count: 0,
+            collision_pairs_tested: 0,
+        }
+    }
+
     pub fn ticks(&self) -> usize {
         self.ticks
     }
@@ -398,12 +407,7 @@ impl Universe {
             },
             gravity: V2 { x: 0.0, y: 0.1 },
             dt: 0.01,
-            stats: Stats {
-                ticks: 0,
-                cells_count: 0,
-                collisions_count: 0,
-                collision_pairs_tested: 0,
-            },
+            stats: Stats::zero(),
 
             collisions_list: Vec::new(),
             collisions_map: IntPairSet::new(MAX_CELLS),
@@ -464,8 +468,10 @@ impl Universe {
         self.cells.len()
     }
 
-    pub fn stats(&self) -> Stats {
-        self.stats
+    pub fn stats(&mut self) -> Stats {
+        let res = self.stats;
+        self.stats = Stats::zero();
+        res
     }
 }
 
