@@ -24,6 +24,7 @@ pub struct Inertia {
     pub pos: V2,
     pub mass: i32,
     pub elasticity: f64, // 0..1
+    pub collision_stats: usize,
 }
 
 #[derive(Default, Hash, Eq, Clone, Copy, Debug, PartialEq)]
@@ -36,7 +37,6 @@ pub struct Cell {
     pub index: CellIndex,
     pub color: Color,
     pub inertia: Inertia,
-    pub collisions: usize,
 }
 
 impl Cell {
@@ -113,6 +113,7 @@ impl Player {
                 },
                 mass: 1,
                 elasticity: 0.5,
+                collision_stats: 0,
             },
             frame: 0,
         }
@@ -226,6 +227,7 @@ impl Universe {
             .inertia
             .pos
             .plus(self.player.inertia.velocity.cmul(self.dt));
+
         // some previously static cells may now need to be in moving_cells
         self.moving_cells.clear();
         for cell in &self.cells {
@@ -418,22 +420,22 @@ impl Universe {
             let impulse = collision_vel / (im1 + im2);
 
             {
-                let cell = &mut self.cells[cell1_idx.index];
-                cell.inertia.velocity = cell1
+                let inertia = &mut self.cells[cell1_idx.index].inertia;
+                inertia.velocity = cell1
                     .inertia
                     .velocity
                     .plus(normal_direction.cmul(impulse * im1));
-                //cell.inertia.pos = cell1.inertia.pos.plus(pos_correct.cmul(im1));
-                cell.collisions += 1;
+                //inertia.pos = cell1.inertia.pos.plus(pos_correct.cmul(im1));
+                inertia.collision_stats += 1;
             }
             {
-                let cell = &mut self.cells[cell2_idx.index];
-                cell.inertia.velocity = cell2
+                let inertia = &mut self.cells[cell2_idx.index].inertia;
+                inertia.velocity = cell2
                     .inertia
                     .velocity
                     .minus(normal_direction.cmul(impulse * im2));
-                //cell.inertia.pos = cell2.inertia.pos.minus(pos_correct.cmul(im2));
-                cell.collisions += 1;
+                //inertia.pos = cell2.inertia.pos.minus(pos_correct.cmul(im2));
+                inertia.collision_stats += 1;
             }
 
             log!("rel_velocity: {rel_velocity:?}");
@@ -480,11 +482,7 @@ impl Universe {
         let index = CellIndex {
             index: self.cells.len(),
         };
-        self.cells.push(Cell {
-            index,
-            collisions: 0,
-            ..cell
-        });
+        self.cells.push(Cell { index, ..cell });
         self.grid.put(
             cell.inertia.pos.x as usize,
             cell.inertia.pos.y as usize,
@@ -503,8 +501,8 @@ impl Universe {
                 pos: V2 { x, y },
                 mass: 0,
                 elasticity: 1.0, // allow other mass to determine
+                collision_stats: 0,
             },
-            collisions: 0,
         }
     }
     pub fn new(width: usize, height: usize) -> Universe {
@@ -542,7 +540,7 @@ impl Universe {
 
     fn reset_cells(&mut self) {
         for cell in &mut self.cells {
-            cell.collisions = 0;
+            cell.inertia.collision_stats = 0;
         }
     }
 

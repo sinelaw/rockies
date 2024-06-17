@@ -65,7 +65,7 @@ impl Game {
                 continue;
             }
             let pixel_idx = (y * (self.width as i32) + x) as usize;
-            self.pixels[pixel_idx] = if cell.collisions > 0 {
+            self.pixels[pixel_idx] = if cell.inertia.collision_stats > 0 {
                 0xFF0000
             } else {
                 cell.color.to_u32()
@@ -116,8 +116,8 @@ impl Game {
                 },
                 mass: 1,
                 elasticity: 0.5,
+                collision_stats: 0,
             },
-            collisions: 0,
         });
     }
 
