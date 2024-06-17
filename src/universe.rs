@@ -1,5 +1,5 @@
 use crate::grid::Grid;
-use crate::smallint_set::IntPairSet;
+use crate::int_pair_set::IntPairSet;
 use crate::v2::V2;
 use wasm_bindgen::prelude::*;
 

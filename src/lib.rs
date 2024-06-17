@@ -1,7 +1,7 @@
 use std::fmt;
 
 mod grid;
-mod smallint_set;
+mod int_pair_set;
 mod universe;
 mod utils;
 mod v2;
