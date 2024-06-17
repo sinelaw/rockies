@@ -146,12 +146,7 @@ impl Universe {
     }
 
     fn update_pos(&mut self) {
-        for cell in &self.cells {
-            if self.is_in_bounds(cell.inertia.pos) {
-                self.grid
-                    .clear(cell.inertia.pos.x as usize, cell.inertia.pos.y as usize);
-            }
-        }
+        self.grid.clear();
 
         for cell in &mut self.cells {
             cell.inertia.pos = cell.inertia.pos.plus(cell.inertia.velocity.cmul(self.dt));
@@ -221,10 +216,10 @@ impl Universe {
                 continue;
             }
 
-            let neighbors = self
+            let (neighbors_count, neighbors) = self
                 .grid
                 .get(cell1.inertia.pos.x as usize, cell1.inertia.pos.y as usize);
-            for cell2_idx in neighbors {
+            for cell2_idx in &neighbors[0..neighbors_count] {
                 if cell1_idx == *cell2_idx {
                     continue;
                 }

@@ -1,10 +1,47 @@
 use std::hash::Hash;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct GridCell<T> {
+    count: usize,
+    version: usize,
+    items: [T; 16],
+}
+
+impl<T: Default + Copy> GridCell<T> {
+    pub fn new() -> GridCell<T> {
+        GridCell {
+            count: 0,
+            version: 0,
+            items: [T::default(); 16],
+        }
+    }
+
+    pub fn get(&self, version: usize) -> (usize, &[T]) {
+        let count = if version != self.version {
+            0
+        } else {
+            self.count
+        };
+        (count, &self.items)
+    }
+
+    pub fn push(&mut self, version: usize, item: T) {
+        if version != self.version {
+            self.count = 0;
+            self.version = version;
+        }
+        assert!(self.count < self.items.len());
+        self.items[self.count] = item;
+        self.count += 1;
+    }
+}
+
 #[derive(Debug)]
 pub struct Grid<T> {
     width: usize,
     height: usize,
-    grid: Vec<Vec<T>>,
+    grid: Vec<GridCell<T>>,
+    version: usize,
 }
 
 const FACTOR: usize = 1;
@@ -14,17 +51,18 @@ fn grid_index(x: usize, y: usize, height: usize) -> usize {
 }
 
 /// Data organized in 2d
-impl<T: Hash + Clone + Eq> Grid<T> {
+impl<T: Default + Copy + Hash + Clone + Eq> Grid<T> {
     pub fn new(width: usize, height: usize) -> Grid<T> {
-        let mut grid: Vec<Vec<T>> = Vec::new();
+        let mut grid: Vec<GridCell<T>> = Vec::new();
         grid.resize(
             ((width / FACTOR + 2) * (height / FACTOR + 2)) as usize,
-            Vec::with_capacity(9 * 9),
+            GridCell::new(),
         );
         Grid {
             width,
             height,
             grid,
+            version: 0,
         }
     }
 
@@ -33,25 +71,20 @@ impl<T: Hash + Clone + Eq> Grid<T> {
         assert!(y < self.height);
         for px in 0..3 {
             for py in 0..3 {
-                self.grid[grid_index(x + px, y + py, self.height)].push(value.clone());
+                self.grid[grid_index(x + px, y + py, self.height)]
+                    .push(self.version, value.clone());
             }
         }
     }
 
-    pub fn clear(&mut self, x: usize, y: usize) {
-        assert!(x < self.width);
-        assert!(y < self.height);
-        for px in 0..3 {
-            for py in 0..3 {
-                self.grid[grid_index(x + px, y + py, self.height)].clear();
-            }
-        }
+    pub fn clear(&mut self) {
+        self.version += 1;
     }
 
-    pub fn get(&self, x: usize, y: usize) -> &Vec<T> {
+    pub fn get(&self, x: usize, y: usize) -> (usize, &[T]) {
         assert!(x < self.width);
         assert!(y < self.height);
-        return &self.grid[grid_index(x + 1, y + 1, self.height)];
+        self.grid[grid_index(x + 1, y + 1, self.height)].get(self.version)
     }
 }
 
@@ -69,11 +102,9 @@ mod tests {
     fn test_grid_one() {
         let mut grid: Grid<char> = Grid::new(1, 1);
         grid.put(0, 0, 'a');
-        let res = grid.get(0, 0);
-
-        println!("{:?}", grid);
-
-        assert_eq!(res, &vec!['a']);
+        let (count, items) = grid.get(0, 0);
+        assert_eq!(count, 1);
+        assert_eq!(items[0..count], ['a'][..]);
     }
 
     #[test]
@@ -82,9 +113,10 @@ mod tests {
         grid.put(0, 0, 'a');
         grid.put(1, 0, 'b');
 
-        let res = grid.get(0, 0);
+        let (count, items) = grid.get(0, 0);
 
-        assert_eq!(res, &vec!['a', 'b']);
+        assert_eq!(count, 2);
+        assert_eq!(items[0..count], ['a', 'b'][..]);
     }
 
     #[test]
@@ -93,7 +125,31 @@ mod tests {
         grid.put(0, 0, 'a');
         grid.put(4, 0, 'b');
 
-        assert_eq!(grid.get(0, 0), &vec!['a']);
-        assert_eq!(grid.get(4, 0), &vec!['b']);
+        {
+            let (count, items) = grid.get(0, 0);
+            assert_eq!(count, 1);
+            assert_eq!(items[0..count], ['a'][..]);
+        }
+        {
+            let (count, items) = grid.get(4, 0);
+            assert_eq!(count, 1);
+            assert_eq!(items[0..count], ['b'][..]);
+        }
+    }
+
+    #[test]
+    fn test_grid_clear() {
+        let mut grid: Grid<char> = Grid::new(2, 2);
+        grid.put(0, 0, 'a');
+
+        grid.clear();
+        let (count, _) = grid.get(0, 0);
+        assert_eq!(count, 0);
+
+        grid.put(1, 1, 'b');
+
+        let (count, items) = grid.get(1, 1);
+        assert_eq!(count, 1);
+        assert_eq!(items[0..count], ['b'][..]);
     }
 }
