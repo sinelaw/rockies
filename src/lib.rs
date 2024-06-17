@@ -374,6 +374,14 @@ impl Universe {
         if self.cells.len() == MAX_CELLS {
             return;
         }
+        // don't allow adding too many cells in the same region
+        let (neighbors, _) = self
+            .grid
+            .get(cell.inertia.pos.x as usize, cell.inertia.pos.y as usize);
+        if neighbors > 6 {
+            return;
+        }
+
         self.stats.cells_count += 1;
         let index = CellIndex {
             index: self.cells.len(),
@@ -383,6 +391,11 @@ impl Universe {
             collisions: 0,
             ..cell
         });
+        self.grid.put(
+            cell.inertia.pos.x as usize,
+            cell.inertia.pos.y as usize,
+            cell.index,
+        );
         self.moving_cells.push(index);
     }
 

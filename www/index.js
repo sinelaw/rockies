@@ -1,7 +1,7 @@
 import { Universe, Cell } from "rockies";
 import { memory } from "rockies/rockies_bg.wasm";
 
-const CELL_SIZE = 5; // px
+const CELL_SIZE = 10; // px
 const GRID_COLOR = "#CCCCCC";
 const DEAD_COLOR = "#FFFFFF";
 const ALIVE_COLOR = "#000000";
@@ -111,5 +111,8 @@ canvas.onclick = (e) => {
 };
 
 canvas.ontouchmove = (e) => {
-    universe.click(e.offsetX / (CELL_SIZE + 1), e.offsetY / (CELL_SIZE + 1));
+    e.preventDefault();
+    let x = e.touches[0].clientX - canvas.offsetLeft;
+    let y = e.touches[0].clientY - canvas.offsetTop;
+    universe.click(x / (CELL_SIZE + 1), y / (CELL_SIZE + 1));
 };
