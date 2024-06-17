@@ -188,11 +188,11 @@ pub struct Universe {
     pub player: Player,
 }
 
-fn inverse_mass(cell: Cell) -> f64 {
-    if cell.inertia.mass == 0 {
+fn inverse_mass(mass: i32) -> f64 {
+    if mass == 0 {
         return 0.0;
     }
-    return 1.0 / (cell.inertia.mass as f64);
+    return 1.0 / (mass as f64);
 }
 
 pub fn round(x: f64) -> i32 {
@@ -382,13 +382,13 @@ impl Universe {
         self.collect_collisions();
         self.stats.collisions_count += self.collisions_list.len();
         for (cell1_idx, cell2_idx) in self.collisions_list.iter() {
-            let cell2 = self.cells[cell2_idx.index];
-            let cell1 = self.cells[cell1_idx.index];
+            let inertia2 = &self.cells[cell2_idx.index].inertia;
+            let inertia1 = &self.cells[cell1_idx.index].inertia;
 
             // static cell is involved, make them both static
-            if ((cell1.inertia.mass == 0) || (cell2.inertia.mass == 0))
-                && (cell1.inertia.velocity.magnitude_sqr() < self.velocity_threshold())
-                && (cell2.inertia.velocity.magnitude_sqr() < self.velocity_threshold())
+            if ((inertia1.mass == 0) || (inertia2.mass == 0))
+                && (inertia1.velocity.magnitude_sqr() < self.velocity_threshold())
+                && (inertia2.velocity.magnitude_sqr() < self.velocity_threshold())
             {
                 self.cells[cell1_idx.index].set_static();
                 self.cells[cell2_idx.index].set_static();
@@ -396,47 +396,10 @@ impl Universe {
                 continue;
             }
 
-            let rel_velocity = cell1.inertia.velocity.minus(cell2.inertia.velocity);
-            let normal = cell1.inertia.pos.minus(cell2.inertia.pos);
-            // coefficient of restitution
-            let e = cell1.inertia.elasticity.min(cell2.inertia.elasticity);
+            let (new_inertia1, new_inertia2) = collide(inertia1, inertia2);
 
-            // let collision_vel = rel_velocity.dot(normal);
-            let collision_vel: f64 = rel_velocity.dot(normal) as f64 * -(1.0 + e);
-
-            // for simplicity the rest here treats them as circles, not boxes:
-            let distance = normal.magnitude();
-
-            let normal_direction = if distance == 0.0 {
-                // the two are perfectly aligned on top of each other
-                V2 { x: 1.0, y: 0.0 }
-            } else {
-                normal.cdiv(distance)
-            };
-
-            let im1 = inverse_mass(cell1);
-            let im2 = inverse_mass(cell2);
-
-            let impulse = collision_vel / (im1 + im2);
-
-            {
-                let inertia = &mut self.cells[cell1_idx.index].inertia;
-                inertia.velocity = cell1
-                    .inertia
-                    .velocity
-                    .plus(normal_direction.cmul(impulse * im1));
-                //inertia.pos = cell1.inertia.pos.plus(pos_correct.cmul(im1));
-                inertia.collision_stats += 1;
-            }
-            {
-                let inertia = &mut self.cells[cell2_idx.index].inertia;
-                inertia.velocity = cell2
-                    .inertia
-                    .velocity
-                    .minus(normal_direction.cmul(impulse * im2));
-                //inertia.pos = cell2.inertia.pos.minus(pos_correct.cmul(im2));
-                inertia.collision_stats += 1;
-            }
+            self.cells[cell1_idx.index].inertia = new_inertia1;
+            self.cells[cell2_idx.index].inertia = new_inertia2;
 
             log!("rel_velocity: {rel_velocity:?}");
             log!("norm: {normal:?}");
@@ -578,4 +541,41 @@ impl Universe {
             }
         }
     }
+}
+
+fn collide(inertia1: &Inertia, inertia2: &Inertia) -> (Inertia, Inertia) {
+    let rel_velocity = inertia1.velocity.minus(inertia2.velocity);
+    let normal = inertia1.pos.minus(inertia2.pos);
+    // coefficient of restitution
+    let e = inertia1.elasticity.min(inertia2.elasticity);
+
+    // let collision_vel = rel_velocity.dot(normal);
+    let collision_vel: f64 = rel_velocity.dot(normal) as f64 * -(1.0 + e);
+
+    // for simplicity the rest here treats them as circles, not boxes:
+    let distance = normal.magnitude();
+
+    let normal_direction = if distance == 0.0 {
+        // the two are perfectly aligned on top of each other
+        V2 { x: 1.0, y: 0.0 }
+    } else {
+        normal.cdiv(distance)
+    };
+
+    let im1 = inverse_mass(inertia1.mass);
+    let im2 = inverse_mass(inertia2.mass);
+
+    let impulse = collision_vel / (im1 + im2);
+
+    let new_inertia1 = Inertia {
+        velocity: inertia1.velocity.plus(normal_direction.cmul(impulse * im1)),
+        ..*inertia1
+    };
+    let new_inertia2 = Inertia {
+        velocity: inertia2
+            .velocity
+            .minus(normal_direction.cmul(impulse * im2)),
+        ..*inertia2
+    };
+    (new_inertia1, new_inertia2)
 }
