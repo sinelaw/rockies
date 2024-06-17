@@ -58,13 +58,16 @@ pub struct Cell {
 }
 
 impl Cell {
-    fn make_cell_static(&mut self) {
+    fn set_static(&mut self) {
         self.inertia.velocity = V2::zero();
         self.inertia.pos = V2 {
             x: round(self.inertia.pos.x) as f64,
             y: round(self.inertia.pos.y) as f64,
         };
         self.inertia.mass = 0;
+    }
+    fn unset_static(&mut self) {
+        self.inertia.mass = 1;
     }
 }
 
@@ -151,12 +154,7 @@ impl Universe {
     }
 
     fn update_pos(&mut self) {
-        self.grid.clear();
-
-        for cell_index in &self.moving_cells {
-            let cell = &mut self.cells[cell_index.index];
-            cell.inertia.pos = cell.inertia.pos.plus(cell.inertia.velocity.cmul(self.dt));
-        }
+        // some previously static cells may now need to be in moving_cells
         self.moving_cells.clear();
         for cell in &self.cells {
             if !self.is_in_bounds(cell.inertia.pos) {
@@ -166,13 +164,24 @@ impl Universe {
             if cell.inertia.mass > 0 {
                 self.moving_cells.push(cell.index);
             }
-            // cell is in bounds
-            // store in the grid
-            self.grid.put(
-                cell.inertia.pos.x as usize,
-                cell.inertia.pos.y as usize,
-                cell.index,
-            );
+        }
+        // update grid and positions
+        for cell_index in &self.moving_cells {
+            let cell = &self.cells[cell_index.index];
+            let old_pos = cell.inertia.pos;
+            let new_pos = cell.inertia.pos.plus(cell.inertia.velocity.cmul(self.dt));
+
+            // update grid:
+            if self.is_in_bounds(old_pos) {
+                self.grid
+                    .remove(old_pos.x as usize, old_pos.y as usize, cell.index)
+            }
+            if self.is_in_bounds(new_pos) {
+                self.grid
+                    .put(new_pos.x as usize, new_pos.y as usize, cell.index);
+            }
+            // update position:
+            self.cells[cell_index.index].inertia.pos = new_pos;
         }
     }
 
@@ -227,6 +236,9 @@ impl Universe {
         for cell1_idx in self.moving_cells.iter() {
             let cell1 = &self.cells[cell1_idx.index];
 
+            if !self.is_in_bounds(cell1.inertia.pos) {
+                continue;
+            }
             let (neighbors_count, neighbors) = self
                 .grid
                 .get(cell1.inertia.pos.x as usize, cell1.inertia.pos.y as usize);
@@ -293,8 +305,8 @@ impl Universe {
                 && (cell1.inertia.velocity.magnitude_sqr() < self.velocity_threshold())
                 && (cell2.inertia.velocity.magnitude_sqr() < self.velocity_threshold())
             {
-                self.cells[cell1_idx.index].make_cell_static();
-                self.cells[cell2_idx.index].make_cell_static();
+                self.cells[cell1_idx.index].set_static();
+                self.cells[cell2_idx.index].set_static();
 
                 continue;
             }
@@ -398,7 +410,7 @@ impl Universe {
         self.grid.put(
             cell.inertia.pos.x as usize,
             cell.inertia.pos.y as usize,
-            cell.index,
+            index,
         );
         self.moving_cells.push(index);
     }
@@ -432,7 +444,8 @@ impl Universe {
             if cell.inertia.mass > 0 {
                 continue;
             }
-            cell.inertia.mass = 1;
+            cell.unset_static();
+            self.moving_cells.push(*cell_idx);
             cell.inertia.velocity = V2 {
                 x: 2.0 * (x as f64 - w / 2.0) / w,
                 y: -1.0, //(cell_idx.index % 10 - 5) as f64 / 10000.0 * self.dt,
@@ -440,6 +453,7 @@ impl Universe {
         }
 
         // add a new cell
+        let r = (x % 17) as f64 / 17.0 - 1.0;
         self.add_cell(Cell {
             index: CellIndex { index: 0 },
             color: Color {
@@ -451,8 +465,8 @@ impl Universe {
                 velocity: V2::zero(),
                 force: V2::zero(),
                 pos: V2 {
-                    x: x as f64,
-                    y: y as f64,
+                    x: x as f64 + r,
+                    y: y as f64 + r,
                 },
                 mass: 1,
             },
@@ -499,6 +513,14 @@ impl Universe {
 
     fn render(&mut self) -> () {
         self.pixels.fill(0xFFFFFF);
+
+        for x in 0..self.pixels_width {
+            for y in 0..self.pixels_height {
+                let neighbors_count = self.grid.get(x as usize, y as usize).0;
+                self.pixels[(y * self.pixels_width + x) as usize] -=
+                    (0x10 * neighbors_count) as u32;
+            }
+        }
         for cell in &self.cells {
             let x = round(cell.inertia.pos.x);
             let y = round(cell.inertia.pos.y);

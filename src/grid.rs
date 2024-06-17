@@ -1,18 +1,16 @@
 use std::hash::Hash;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct GridCell<T> {
-    count: usize,
     version: usize,
-    items: [T; 16],
+    items: Vec<T>, // [T; 16],
 }
 
-impl<T: Default + Copy> GridCell<T> {
+impl<T: Default + PartialEq> GridCell<T> {
     pub fn new() -> GridCell<T> {
         GridCell {
-            count: 0,
             version: 0,
-            items: [T::default(); 16],
+            items: Vec::with_capacity(16), //[T::default(); 16],
         }
     }
 
@@ -20,19 +18,25 @@ impl<T: Default + Copy> GridCell<T> {
         let count = if version != self.version {
             0
         } else {
-            self.count
+            self.items.len()
         };
         (count, &self.items)
     }
 
     pub fn push(&mut self, version: usize, item: T) {
         if version != self.version {
-            self.count = 0;
             self.version = version;
+            self.items.clear();
         }
-        assert!(self.count < self.items.len());
-        self.items[self.count] = item;
-        self.count += 1;
+        self.items.push(item);
+    }
+
+    pub fn pop(&mut self, version: usize, item: T) {
+        if version != self.version {
+            return;
+        }
+
+        self.items.retain(|x| *x != item);
     }
 }
 
@@ -85,6 +89,16 @@ impl<T: Default + Copy + Hash + Clone + Eq> Grid<T> {
         assert!(x < self.width);
         assert!(y < self.height);
         self.grid[grid_index(x + 1, y + 1, self.height)].get(self.version)
+    }
+
+    pub fn remove(&mut self, x: usize, y: usize, value: T) {
+        assert!(x < self.width);
+        assert!(y < self.height);
+        for px in 0..3 {
+            for py in 0..3 {
+                self.grid[grid_index(x + px, y + py, self.height)].pop(self.version, value.clone());
+            }
+        }
     }
 }
 
