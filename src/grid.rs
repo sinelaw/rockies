@@ -5,7 +5,6 @@ pub struct Grid<T> {
     width: usize,
     height: usize,
     grid: Vec<Vec<T>>,
-    empty_vec: Vec<T>,
 }
 
 const FACTOR: usize = 1;
@@ -14,6 +13,7 @@ fn grid_index(x: usize, y: usize, height: usize) -> usize {
     (x / FACTOR) * (height / FACTOR + 2) + (y / FACTOR)
 }
 
+/// Data organized in 2d
 impl<T: Hash + Clone + Eq> Grid<T> {
     pub fn new(width: usize, height: usize) -> Grid<T> {
         let mut grid: Vec<Vec<T>> = Vec::new();
@@ -25,7 +25,6 @@ impl<T: Hash + Clone + Eq> Grid<T> {
             width,
             height,
             grid,
-            empty_vec: Vec::new(),
         }
     }
 
@@ -49,21 +48,10 @@ impl<T: Hash + Clone + Eq> Grid<T> {
         }
     }
 
-    pub fn get(&self, x: usize, y: usize) -> [[&Vec<T>; 3]; 3] {
+    pub fn get(&self, x: usize, y: usize) -> &Vec<T> {
         assert!(x < self.width);
         assert!(y < self.height);
-
-        let mut res: [[&Vec<T>; 3]; 3] = [
-            [&self.empty_vec, &self.empty_vec, &self.empty_vec],
-            [&self.empty_vec, &self.empty_vec, &self.empty_vec],
-            [&self.empty_vec, &self.empty_vec, &self.empty_vec],
-        ];
-        for px in 0..3 {
-            for py in 0..3 {
-                res[px][py] = &self.grid[grid_index(x + px, y + py, self.height)];
-            }
-        }
-        res
+        return &self.grid[grid_index(x + 1, y + 1, self.height)];
     }
 }
 
@@ -85,13 +73,7 @@ mod tests {
 
         println!("{:?}", grid);
 
-        let expected = [
-            [&vec!['a'], &vec!['a'], &vec!['a']],
-            [&vec!['a'], &vec!['a'], &vec!['a']],
-            [&vec!['a'], &vec!['a'], &vec!['a']],
-        ];
-
-        assert_eq!(res, expected);
+        assert_eq!(res, &vec!['a']);
     }
 
     #[test]
@@ -102,13 +84,7 @@ mod tests {
 
         let res = grid.get(0, 0);
 
-        let expected = [
-            [&vec!['a'], &vec!['a'], &vec!['a']],
-            [&vec!['a', 'b'], &vec!['a', 'b'], &vec!['a', 'b']],
-            [&vec!['a', 'b'], &vec!['a', 'b'], &vec!['a', 'b']],
-        ];
-
-        assert_eq!(res, expected);
+        assert_eq!(res, &vec!['a', 'b']);
     }
 
     #[test]
@@ -117,28 +93,7 @@ mod tests {
         grid.put(0, 0, 'a');
         grid.put(4, 0, 'b');
 
-        {
-            let res = grid.get(0, 0);
-
-            let expected = [
-                [&vec!['a'], &vec!['a'], &vec!['a']],
-                [&vec!['a'], &vec!['a'], &vec!['a']],
-                [&vec!['a'], &vec!['a'], &vec!['a']],
-            ];
-
-            assert_eq!(res, expected);
-        }
-
-        {
-            let res = grid.get(4, 0);
-
-            let expected = [
-                [&vec!['b'], &vec!['b'], &vec!['b']],
-                [&vec!['b'], &vec!['b'], &vec!['b']],
-                [&vec!['b'], &vec!['b'], &vec!['b']],
-            ];
-
-            assert_eq!(res, expected);
-        }
+        assert_eq!(grid.get(0, 0), &vec!['a']);
+        assert_eq!(grid.get(4, 0), &vec!['b']);
     }
 }

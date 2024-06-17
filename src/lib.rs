@@ -49,6 +49,7 @@ pub struct Cell {
     index: usize,
     color: Color,
     inertia: Inertia,
+    collisions: usize,
 }
 
 #[wasm_bindgen]
@@ -212,54 +213,50 @@ impl Universe {
             let neighbors = self
                 .grid
                 .get(cell1.inertia.pos.x as usize, cell1.inertia.pos.y as usize);
-            for ns in neighbors {
-                for ns2 in ns {
-                    for cell2_idx in ns2 {
-                        if cell1_idx == *cell2_idx {
-                            continue;
-                        }
-
-                        if self.collisions_map.contains(cell1_idx, *cell2_idx) {
-                            continue;
-                        }
-                        self.collisions_map.put(cell1_idx, *cell2_idx);
-
-                        self.stats.collision_pairs_tested += 1;
-
-                        let cell2 = &self.cells[*cell2_idx];
-                        // collision between infinite masses?!
-                        if (cell1.inertia.mass == 0) && (cell2.inertia.mass == 0) {
-                            continue;
-                        }
-
-                        let normal = cell1.inertia.pos.minus(cell2.inertia.pos);
-                        let radius = 1.0; // they're actually boxes but ok
-                        if normal.magnitude_sqr() > radius * radius {
-                            continue;
-                        }
-
-                        let rel_velocity = cell1.inertia.velocity.minus(cell2.inertia.velocity);
-
-                        // if the dot product is negative, the two objects are colliding,
-                        let dot = rel_velocity.dot(normal);
-                        if dot > 0.0 {
-                            // moving away from each other
-                            continue;
-                        }
-                        if dot * dot < 0.0001 {
-                            // negligible velocity (floating point error)
-                            continue;
-                        }
-
-                        self.collisions_list.push((cell1_idx, *cell2_idx));
-
-                        log!("collision: {key:?} {normal:?} {dot:?}");
-                        log!("cell1: {cell1:?}");
-                        log!("cell2: {cell2:?}");
-
-                        // println!("collisions: {:?}", collisions);
-                    }
+            for cell2_idx in neighbors {
+                if cell1_idx == *cell2_idx {
+                    continue;
                 }
+
+                if self.collisions_map.contains(cell1_idx, *cell2_idx) {
+                    continue;
+                }
+                self.collisions_map.put(cell1_idx, *cell2_idx);
+
+                self.stats.collision_pairs_tested += 1;
+
+                let cell2 = &self.cells[*cell2_idx];
+                // collision between infinite masses?!
+                if (cell1.inertia.mass == 0) && (cell2.inertia.mass == 0) {
+                    continue;
+                }
+
+                let normal = cell1.inertia.pos.minus(cell2.inertia.pos);
+                let radius = 1.0; // they're actually boxes but ok
+                if normal.magnitude_sqr() > radius * radius {
+                    continue;
+                }
+
+                let rel_velocity = cell1.inertia.velocity.minus(cell2.inertia.velocity);
+
+                // if the dot product is negative, the two objects are colliding,
+                let dot = rel_velocity.dot(normal);
+                if dot > 0.0 {
+                    // moving away from each other
+                    continue;
+                }
+                if dot * dot < 0.0001 {
+                    // negligible velocity (floating point error)
+                    continue;
+                }
+
+                self.collisions_list.push((cell1_idx, *cell2_idx));
+
+                log!("collision: {key:?} {normal:?} {dot:?}");
+                log!("cell1: {cell1:?}");
+                log!("cell2: {cell2:?}");
+
+                // println!("collisions: {:?}", collisions);
             }
         }
     }
@@ -299,7 +296,7 @@ impl Universe {
             let slop = 0.02;
             let pos_correct = normal_direction
                 .cmul((penetration - slop) / (im1 + im2))
-                .cmul(0.2);
+                .cmul(0.4);
 
             let impulse = collision_vel / (im1 + im2);
 
@@ -310,6 +307,7 @@ impl Universe {
                     .velocity
                     .plus(normal_direction.cmul(impulse * im1));
                 cell.inertia.pos = cell1.inertia.pos.plus(pos_correct.cmul(im1));
+                cell.collisions += 1;
             }
             {
                 let cell = &mut self.cells[*cell2_idx];
@@ -318,6 +316,7 @@ impl Universe {
                     .velocity
                     .minus(normal_direction.cmul(impulse * im2));
                 cell.inertia.pos = cell2.inertia.pos.minus(pos_correct.cmul(im2));
+                cell.collisions += 1;
             }
 
             log!("rel_velocity: {rel_velocity:?}");
@@ -333,6 +332,7 @@ impl Universe {
     pub fn tick(&mut self) {
         self.stats.ticks += 1;
         self.render();
+        self.reset_cells();
 
         for _ in 0..((1.0 / self.dt) as usize) {
             self.log_cells();
@@ -355,6 +355,7 @@ impl Universe {
         self.stats.cells_count += 1;
         self.cells.push(Cell {
             index: self.cells.len(),
+            collisions: 0,
             ..cell
         });
     }
@@ -369,6 +370,7 @@ impl Universe {
                 pos: V2 { x, y },
                 mass: 0,
             },
+            collisions: 0,
         }
     }
 
@@ -376,7 +378,7 @@ impl Universe {
         self.add_cell(Cell {
             index: 0,
             color: Color {
-                r: ((10 * x) % 255) as u8,
+                r: 0,
                 g: 150,
                 b: ((155 * y) % 255) as u8,
             },
@@ -389,6 +391,7 @@ impl Universe {
                 },
                 mass: 1,
             },
+            collisions: 0,
         });
     }
 
@@ -439,12 +442,16 @@ impl Universe {
                 continue;
             }
             let pixel_idx = (y as u32 * self.pixels_width + x as u32) as usize;
-            self.pixels[pixel_idx] =
-                if cell.inertia.velocity.magnitude_sqr() < self.velocity_threshold() {
-                    0x000000
-                } else {
-                    cell.color.to_u32()
-                }
+            self.pixels[pixel_idx] = if cell.collisions > 0 {
+                0xFF0000
+            } else {
+                cell.color.to_u32()
+            }
+        }
+    }
+    fn reset_cells(&mut self) {
+        for cell in &mut self.cells {
+            cell.collisions = 0;
         }
     }
 

@@ -101,8 +101,15 @@ drawPixels();
 requestAnimationFrame(renderLoop);
 
 canvas.onmousemove = (e) => {
+    if (e.buttons > 0) {
+        universe.click(e.offsetX / (CELL_SIZE + 1), e.offsetY / (CELL_SIZE + 1));
+    }
+};
+
+canvas.onclick = (e) => {
     universe.click(e.offsetX / (CELL_SIZE + 1), e.offsetY / (CELL_SIZE + 1));
 };
+
 canvas.ontouchmove = (e) => {
     universe.click(e.offsetX / (CELL_SIZE + 1), e.offsetY / (CELL_SIZE + 1));
 };
