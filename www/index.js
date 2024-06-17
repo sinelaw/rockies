@@ -1,13 +1,14 @@
 import { Universe, Cell } from "rockies";
 import { memory } from "rockies/rockies_bg.wasm";
 
-const CELL_SIZE = 8; // px
+const SIZE = 64;
+const CELL_SIZE = (0.7 * Math.min(document.body.clientWidth, document.body.clientHeight) / SIZE) | 0; // px
 const GRID_COLOR = "#CCCCCC";
 const DEAD_COLOR = "#FFFFFF";
 const ALIVE_COLOR = "#000000";
 
 
-const universe = Universe.new(64, 64);
+const universe = Universe.new(SIZE, SIZE);
 const width = universe.width();
 const height = universe.height();
 
