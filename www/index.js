@@ -1,4 +1,4 @@
-import { Universe, Cell } from "rockies";
+import { Game, Cell } from "rockies";
 import { memory } from "rockies/rockies_bg.wasm";
 
 const SIZE = 64;
@@ -8,9 +8,9 @@ const DEAD_COLOR = "#FFFFFF";
 const ALIVE_COLOR = "#000000";
 
 
-const universe = Universe.new(SIZE, SIZE);
-const width = universe.width();
-const height = universe.height();
+const game = Game.new(SIZE, SIZE);
+const width = game.width();
+const height = game.height();
 
 const ticks = document.getElementById("ticks");
 const cells_count = document.getElementById("cells-count");
@@ -27,12 +27,12 @@ const ctx = canvas.getContext('2d');
 
 const renderLoop = () => {
 
-    universe.tick();
+    game.tick();
 
     drawGrid();
     drawPixels();
 
-    let stats = universe.stats();
+    let stats = game.stats();
 
     ticks.textContent = stats.ticks();
     cells_count.textContent = stats.cells_count();
@@ -68,7 +68,7 @@ const getIndex = (row, column) => {
 };
 
 const drawPixels = () => {
-    const pixelsPtr = universe.pixels();
+    const pixelsPtr = game.pixels();
     const pixels = new Uint32Array(memory.buffer, pixelsPtr, width * height);
 
 
@@ -103,17 +103,17 @@ requestAnimationFrame(renderLoop);
 
 canvas.onmousemove = (e) => {
     if (e.buttons > 0) {
-        universe.click(e.offsetX / (CELL_SIZE + 1), e.offsetY / (CELL_SIZE + 1));
+        game.click(e.offsetX / (CELL_SIZE + 1), e.offsetY / (CELL_SIZE + 1));
     }
 };
 
 canvas.onclick = (e) => {
-    universe.click(e.offsetX / (CELL_SIZE + 1), e.offsetY / (CELL_SIZE + 1));
+    game.click(e.offsetX / (CELL_SIZE + 1), e.offsetY / (CELL_SIZE + 1));
 };
 
 canvas.ontouchmove = (e) => {
     e.preventDefault();
     let x = e.touches[0].clientX - canvas.offsetLeft;
     let y = e.touches[0].clientY - canvas.offsetTop;
-    universe.click(x / (CELL_SIZE + 1), y / (CELL_SIZE + 1));
+    game.click(x / (CELL_SIZE + 1), y / (CELL_SIZE + 1));
 };
