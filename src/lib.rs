@@ -44,9 +44,14 @@ pub struct Inertia {
     mass: i32,
 }
 
+#[derive(Default, Hash, Eq, Clone, Copy, Debug, PartialEq)]
+struct CellIndex {
+    index: usize,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Cell {
-    index: usize,
+    index: CellIndex,
     color: Color,
     inertia: Inertia,
     collisions: usize,
@@ -105,11 +110,11 @@ pub struct Universe {
     pixels_width: u32,
     pixels_height: u32,
     cells: Vec<Cell>,
-
-    grid: Grid<usize>,
+    moving_cells: Vec<CellIndex>,
+    grid: Grid<CellIndex>,
 
     // transient data:
-    collisions_list: Vec<(usize, usize)>,
+    collisions_list: Vec<(CellIndex, CellIndex)>,
     collisions_map: IntPairSet,
 
     pixels: Vec<u32>,
@@ -148,12 +153,18 @@ impl Universe {
     fn update_pos(&mut self) {
         self.grid.clear();
 
-        for cell in &mut self.cells {
+        for cell_index in &self.moving_cells {
+            let cell = &mut self.cells[cell_index.index];
             cell.inertia.pos = cell.inertia.pos.plus(cell.inertia.velocity.cmul(self.dt));
         }
+        self.moving_cells.clear();
         for cell in &self.cells {
             if !self.is_in_bounds(cell.inertia.pos) {
                 continue;
+            }
+            //} && (cell.inertia.velocity.len() > self.velocity_threshold())
+            if cell.inertia.mass > 0 {
+                self.moving_cells.push(cell.index);
             }
             // cell is in bounds
             // store in the grid
@@ -209,29 +220,28 @@ impl Universe {
         self.collisions_map.clear();
         self.collisions_list.clear();
 
-        for (cell1_idx, cell1) in self.cells.iter().enumerate() {
-            if cell1.inertia.mass > 0
-                && (cell1.inertia.velocity.magnitude_sqr() < self.velocity_threshold())
-            {
-                continue;
-            }
+        for cell1_idx in self.moving_cells.iter() {
+            let cell1 = &self.cells[cell1_idx.index];
 
             let (neighbors_count, neighbors) = self
                 .grid
                 .get(cell1.inertia.pos.x as usize, cell1.inertia.pos.y as usize);
             for cell2_idx in &neighbors[0..neighbors_count] {
-                if cell1_idx == *cell2_idx {
+                if *cell1_idx == *cell2_idx {
                     continue;
                 }
 
-                if self.collisions_map.contains(cell1_idx, *cell2_idx) {
+                if self
+                    .collisions_map
+                    .contains(cell1_idx.index, cell2_idx.index)
+                {
                     continue;
                 }
-                self.collisions_map.put(cell1_idx, *cell2_idx);
+                self.collisions_map.put(cell1_idx.index, cell2_idx.index);
 
                 self.stats.collision_pairs_tested += 1;
 
-                let cell2 = &self.cells[*cell2_idx];
+                let cell2 = &self.cells[cell2_idx.index];
                 // collision between infinite masses?!
                 if (cell1.inertia.mass == 0) && (cell2.inertia.mass == 0) {
                     continue;
@@ -256,7 +266,7 @@ impl Universe {
                     continue;
                 }
 
-                self.collisions_list.push((cell1_idx, *cell2_idx));
+                self.collisions_list.push((*cell1_idx, *cell2_idx));
 
                 log!("collision: {key:?} {normal:?} {dot:?}");
                 log!("cell1: {cell1:?}");
@@ -271,20 +281,16 @@ impl Universe {
         self.collect_collisions();
         self.stats.collisions_count += self.collisions_list.len();
         for (cell1_idx, cell2_idx) in self.collisions_list.iter() {
-            let cell2 = self.cells[*cell2_idx];
-            let cell1 = self.cells[*cell1_idx];
-
-            if (cell1.inertia.mass == 0) && (cell2.inertia.mass == 0) {
-                continue;
-            }
+            let cell2 = self.cells[cell2_idx.index];
+            let cell1 = self.cells[cell1_idx.index];
 
             // static cell is involved, make them both static
             if ((cell1.inertia.mass == 0) || (cell2.inertia.mass == 0))
                 && (cell1.inertia.velocity.magnitude_sqr() < self.velocity_threshold())
                 && (cell2.inertia.velocity.magnitude_sqr() < self.velocity_threshold())
             {
-                self.cells[*cell1_idx].make_cell_static();
-                self.cells[*cell2_idx].make_cell_static();
+                self.cells[cell1_idx.index].make_cell_static();
+                self.cells[cell2_idx.index].make_cell_static();
 
                 continue;
             }
@@ -317,7 +323,7 @@ impl Universe {
             let impulse = collision_vel / (im1 + im2);
 
             {
-                let cell = &mut self.cells[*cell1_idx];
+                let cell = &mut self.cells[cell1_idx.index];
                 cell.inertia.velocity = cell1
                     .inertia
                     .velocity
@@ -326,7 +332,7 @@ impl Universe {
                 cell.collisions += 1;
             }
             {
-                let cell = &mut self.cells[*cell2_idx];
+                let cell = &mut self.cells[cell2_idx.index];
                 cell.inertia.velocity = cell2
                     .inertia
                     .velocity
@@ -369,16 +375,20 @@ impl Universe {
             return;
         }
         self.stats.cells_count += 1;
-        self.cells.push(Cell {
+        let index = CellIndex {
             index: self.cells.len(),
+        };
+        self.cells.push(Cell {
+            index,
             collisions: 0,
             ..cell
         });
+        self.moving_cells.push(index);
     }
 
     fn wall_cell(&self, x: f64, y: f64) -> Cell {
         Cell {
-            index: 0,
+            index: CellIndex { index: 0 },
             color: Color { r: 150, g: 0, b: 0 },
             inertia: Inertia {
                 velocity: V2 { x: 0.0, y: 0.0 },
@@ -392,7 +402,7 @@ impl Universe {
 
     pub fn click(&mut self, x: u32, y: u32) {
         self.add_cell(Cell {
-            index: 0,
+            index: CellIndex { index: 0 },
             color: Color {
                 r: 0,
                 g: 150,
@@ -418,6 +428,7 @@ impl Universe {
             pixels_width: width,
             pixels_height: height,
             cells: Vec::new(),
+            moving_cells: Vec::new(),
             grid: Grid::new(width as usize, height as usize),
             pixels: {
                 let mut pixels = Vec::with_capacity((width * height) as usize);
