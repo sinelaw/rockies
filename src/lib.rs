@@ -12,6 +12,8 @@ use wasm_bindgen::prelude::*;
 
 extern crate web_sys;
 
+const MAX_CELLS: usize = 4096;
+
 // A macro to provide `println!(..)`-style syntax for `console.log` logging.
 macro_rules! log {
     ( $( $t:tt )* ) => {
@@ -58,9 +60,13 @@ pub struct Universe {
     pixels_width: u32,
     pixels_height: u32,
     cells: Vec<Cell>,
-    moving_cells: Vec<usize>,
 
     grid: Grid<usize>,
+
+    // transient data:
+    collisions_list: Vec<(usize, usize)>,
+    collisions_map: IntPairSet,
+
     pixels: Vec<u32>,
     gravity: V2,
     dt: f64,
@@ -105,9 +111,6 @@ impl Universe {
         for cell in &mut self.cells {
             cell.inertia.pos = cell.inertia.pos.plus(cell.inertia.velocity.cmul(self.dt));
         }
-
-        self.moving_cells.clear();
-
         for cell in &self.cells {
             if !self.is_in_bounds(cell.inertia.pos) {
                 continue;
@@ -119,14 +122,6 @@ impl Universe {
                 cell.inertia.pos.y as usize,
                 cell.index,
             );
-            // moving cell?
-            if cell.inertia.velocity.magnitude_sqr() < self.velocity_threshold() {
-                continue;
-            }
-            if cell.inertia.mass == 0 {
-                continue;
-            }
-            self.moving_cells.push(cell.index);
         }
     }
 
@@ -170,27 +165,32 @@ impl Universe {
         self.dt
     }
 
-    fn collect_collisions(&mut self) -> Vec<(usize, usize)> {
-        let mut collisions_list: Vec<(usize, usize)> = Vec::new();
-        let mut collisions_map = IntPairSet::new(self.cells.len());
+    fn collect_collisions(&mut self) {
+        self.collisions_map.clear();
+        self.collisions_list.clear();
 
-        for cell1_idx in self.moving_cells.iter() {
-            let cell1 = &self.cells[*cell1_idx];
+        for (cell1_idx, cell1) in self.cells.iter().enumerate() {
+            if cell1.inertia.mass > 0
+                && (cell1.inertia.velocity.magnitude_sqr() < self.velocity_threshold())
+            {
+                continue;
+            }
+
             let neighbors = self
                 .grid
                 .get(cell1.inertia.pos.x as usize, cell1.inertia.pos.y as usize);
             for ns in neighbors {
                 for ns2 in ns {
                     for cell2_idx in ns2 {
-                        if *cell1_idx == *cell2_idx {
+                        if cell1_idx == *cell2_idx {
                             continue;
                         }
 
-                        if collisions_map.contains(*cell1_idx, *cell2_idx) {
+                        if self.collisions_map.contains(cell1_idx, *cell2_idx) {
                             continue;
                         }
 
-                        collisions_map.put(*cell1_idx, *cell2_idx);
+                        self.collisions_map.put(cell1_idx, *cell2_idx);
 
                         let cell2 = &self.cells[*cell2_idx];
                         // collision between infinite masses?!
@@ -206,11 +206,6 @@ impl Universe {
 
                         let rel_velocity = cell1.inertia.velocity.minus(cell2.inertia.velocity);
 
-                        // skip objects that have negligible relative velocity
-                        if rel_velocity.magnitude_sqr() < 0.001 {
-                            continue;
-                        }
-
                         // if the dot product is negative, the two objects are colliding,
                         let dot = rel_velocity.dot(normal);
                         if dot > 0.0 {
@@ -222,7 +217,7 @@ impl Universe {
                             continue;
                         }
 
-                        collisions_list.push((*cell1_idx, *cell2_idx));
+                        self.collisions_list.push((cell1_idx, *cell2_idx));
 
                         log!("collision: {key:?} {normal:?} {dot:?}");
                         log!("cell1: {cell1:?}");
@@ -233,15 +228,14 @@ impl Universe {
                 }
             }
         }
-        collisions_list
     }
 
     fn calc_collisions(&mut self) {
-        let collisions = self.collect_collisions();
-        self.stats.collisions_count = collisions.len();
-        for (cell1_idx, cell2_idx) in collisions {
-            let cell2 = self.cells[cell2_idx];
-            let cell1 = self.cells[cell1_idx];
+        self.collect_collisions();
+        self.stats.collisions_count = self.collisions_list.len();
+        for (cell1_idx, cell2_idx) in self.collisions_list.iter() {
+            let cell2 = self.cells[*cell2_idx];
+            let cell1 = self.cells[*cell1_idx];
 
             // collision between infinite masses?!
             if (cell1.inertia.mass == 0) && (cell2.inertia.mass == 0) {
@@ -276,7 +270,7 @@ impl Universe {
             let impulse = collision_vel / (im1 + im2);
 
             {
-                let cell = &mut self.cells[cell1_idx];
+                let cell = &mut self.cells[*cell1_idx];
                 cell.inertia.velocity = cell1
                     .inertia
                     .velocity
@@ -284,7 +278,7 @@ impl Universe {
                 cell.inertia.pos = cell1.inertia.pos.plus(pos_correct.cmul(im1));
             }
             {
-                let cell = &mut self.cells[cell2_idx];
+                let cell = &mut self.cells[*cell2_idx];
                 cell.inertia.velocity = cell2
                     .inertia
                     .velocity
@@ -320,6 +314,9 @@ impl Universe {
     }
 
     fn add_cell(&mut self, cell: Cell) {
+        if self.cells.len() == MAX_CELLS {
+            return;
+        }
         self.cells.push(Cell {
             index: self.cells.len(),
             ..cell
@@ -366,7 +363,6 @@ impl Universe {
             pixels_width: width,
             pixels_height: height,
             cells: Vec::new(),
-            moving_cells: Vec::new(),
             grid: Grid::new(width as usize, height as usize),
             pixels: {
                 let mut pixels = Vec::with_capacity((width * height) as usize);
@@ -378,6 +374,9 @@ impl Universe {
             stats: Stats {
                 collisions_count: 0,
             },
+
+            collisions_list: Vec::new(),
+            collisions_map: IntPairSet::new(MAX_CELLS),
         };
 
         for x in width / 4..(3 * width / 4) {

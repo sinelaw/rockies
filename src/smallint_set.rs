@@ -1,25 +1,32 @@
 pub(crate) struct IntPairSet {
-    matrix: Vec<bool>,
+    matrix: Vec<(u8, bool)>,
+    version: u8,
     max_objs: usize,
 }
 
 impl IntPairSet {
     pub fn new(max_val: usize) -> IntPairSet {
-        let mut matrix: Vec<bool> = Vec::new();
-        matrix.resize(max_val * max_val, false);
+        let mut matrix: Vec<(u8, bool)> = Vec::new();
+        matrix.resize(max_val * max_val, (0, false));
         IntPairSet {
             matrix,
+            version: 0,
             max_objs: max_val,
         }
     }
 
     pub fn contains(&self, a: usize, b: usize) -> bool {
-        self.matrix[a * self.max_objs + b]
+        let (version, value) = self.matrix[a * self.max_objs + b];
+        (version == self.version) && value
     }
 
     pub fn put(&mut self, a: usize, b: usize) {
-        self.matrix[a * self.max_objs + b] = true;
-        self.matrix[b * self.max_objs + a] = true;
+        self.matrix[a * self.max_objs + b] = (self.version, true);
+        self.matrix[b * self.max_objs + a] = (self.version, true);
+    }
+
+    pub fn clear(&mut self) {
+        self.version += 1;
     }
 }
 
