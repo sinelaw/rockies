@@ -2,8 +2,7 @@ use crate::assets;
 use crate::color::Color;
 use crate::grid::Grid;
 use crate::int_pair_set::IntPairSet;
-use crate::v2::V2;
-use std::convert::TryInto;
+use crate::v2::{V2i, V2};
 use wasm_bindgen::prelude::*;
 
 extern crate web_sys;
@@ -43,12 +42,7 @@ pub struct Cell {
 impl Cell {
     fn set_static(&mut self) {
         self.inertia.velocity = V2::zero();
-        let new_pos = V2 {
-            x: round(self.inertia.pos.x) as f64,
-            y: round(self.inertia.pos.y) as f64,
-        };
-
-        self.inertia.pos = new_pos;
+        self.inertia.pos = self.inertia.pos.round().to_v2();
         self.inertia.mass = 0;
     }
     fn unset_static(&mut self) {
@@ -111,10 +105,7 @@ impl Player {
             inertia: Inertia {
                 velocity: V2::zero(),
                 force: V2::zero(),
-                pos: V2 {
-                    x: round(x as f64) as f64,
-                    y: round(y as f64) as f64,
-                },
+                pos: V2::new(x as f64, y as f64),
                 mass: 100,
                 elasticity: 0.0,
                 collision_stats: 0,
@@ -183,38 +174,29 @@ pub struct UniverseGrid {
 }
 
 impl UniverseGrid {
-    fn is_in_bounds(&self, pos: V2) -> bool {
-        round(pos.x) >= 0
-            && round(pos.y) >= 0
-            && round(pos.x) < self.width as i32
-            && round(pos.y) < self.height as i32
+    fn is_in_bounds(&self, pos: V2i) -> bool {
+        (pos.x) >= 0 && (pos.y) >= 0 && (pos.x) < self.width as i32 && (pos.y) < self.height as i32
     }
 
-    fn update_cell_pos(&mut self, cell_idx: CellIndex, old_pos: V2, new_pos: V2) {
+    fn update_cell_pos(&mut self, cell_idx: CellIndex, old_pos: V2i, new_pos: V2i) {
         // update grid:
         if self.is_in_bounds(old_pos) {
-            self.grid.remove(
-                round(old_pos.x) as usize,
-                round(old_pos.y) as usize,
-                cell_idx,
-            )
+            self.grid
+                .remove((old_pos.x) as usize, (old_pos.y) as usize, cell_idx)
         }
         if self.is_in_bounds(new_pos) {
             self.put(new_pos, cell_idx);
         }
     }
 
-    pub fn put(&mut self, pos: V2, cell_idx: CellIndex) {
+    pub fn put(&mut self, pos: V2i, cell_idx: CellIndex) {
         assert!(self.is_in_bounds(pos));
-        self.grid
-            .put(round(pos.x) as usize, round(pos.y) as usize, cell_idx)
+        self.grid.put((pos.x) as usize, (pos.y) as usize, cell_idx)
     }
 
-    pub fn get(&self, pos: V2) -> (usize, &Vec<CellIndex>) {
-        self.grid.get(
-            round(pos.x).try_into().unwrap(),
-            round(pos.y).try_into().unwrap(),
-        )
+    pub fn get(&self, pos: V2i) -> (usize, &Vec<CellIndex>) {
+        assert!(self.is_in_bounds(pos));
+        self.grid.get(pos.x as usize, pos.y as usize)
     }
 }
 
@@ -238,10 +220,6 @@ fn inverse_mass(mass: i32) -> f64 {
         return 0.0;
     }
     return 1.0 / (mass as f64);
-}
-
-pub fn round(x: f64) -> i32 {
-    (x + 0.5) as i32
 }
 
 impl Universe {
@@ -268,19 +246,41 @@ impl Universe {
         // self.player.self_force = V2::zero();
     }
 
-    fn update_pos(&mut self) {
+    fn get_next_player_pos(&mut self) -> V2 {
         log!("player pos: {:?}", self.player.inertia.pos);
-
-        self.player.inertia.pos = self
+        let new_player_pos = self
             .player
             .inertia
             .pos
             .plus(self.player.inertia.velocity.cmul(self.dt));
+        let player_offset = new_player_pos.minus(self.player.inertia.pos);
+        if player_offset.magnitude_sqr() <= 1.0 {
+            return new_player_pos;
+        }
+        for x in 0..self.player.w {
+            for y in 0..self.player.h {
+                let pos = V2 {
+                    x: self.player.inertia.pos.x + x as f64,
+                    y: self.player.inertia.pos.y + y as f64,
+                };
+                if self.grid.is_in_bounds(pos.round()) {
+                    let (neighbor_count, _) = self.grid.get(pos.round());
+                    if neighbor_count > 0 {
+                        return self.player.inertia.pos;
+                    }
+                }
+            }
+        }
+        new_player_pos
+    }
+
+    fn update_pos(&mut self) {
+        self.player.inertia.pos = self.get_next_player_pos();
 
         // some previously static cells may now need to be in moving_cells
         self.moving_cells.clear();
         for cell in &self.cells {
-            if !self.grid.is_in_bounds(cell.inertia.pos) {
+            if !self.grid.is_in_bounds(cell.inertia.pos.round()) {
                 continue;
             }
             //} && (cell.inertia.velocity.len() > self.velocity_threshold())
@@ -295,7 +295,8 @@ impl Universe {
             let new_pos = cell.inertia.pos.plus(cell.inertia.velocity.cmul(self.dt));
 
             // update grid:
-            self.grid.update_cell_pos(*cell_index, old_pos, new_pos);
+            self.grid
+                .update_cell_pos(*cell_index, old_pos.round(), new_pos.round());
             // update position:
             self.cells[cell_index.index].inertia.pos = new_pos;
         }
@@ -353,7 +354,7 @@ impl Universe {
         for cell1_idx in self.moving_cells.iter() {
             let cell1 = &self.cells[cell1_idx.index];
 
-            if !self.grid.is_in_bounds(cell1.inertia.pos) {
+            if !self.grid.is_in_bounds(cell1.inertia.pos.round()) {
                 continue;
             }
             let (neighbors_count, neighbors) = self
@@ -431,82 +432,13 @@ impl Universe {
             let (new_inertia1, new_inertia2) = collide(inertia1, inertia2);
 
             self.grid
-                .update_cell_pos(*cell1_idx, inertia1.pos, new_inertia1.pos);
+                .update_cell_pos(*cell1_idx, inertia1.pos.round(), new_inertia1.pos.round());
             self.grid
-                .update_cell_pos(*cell2_idx, inertia2.pos, new_inertia2.pos);
+                .update_cell_pos(*cell2_idx, inertia2.pos.round(), new_inertia2.pos.round());
 
             self.cells[cell1_idx.index].inertia = new_inertia1;
             self.cells[cell2_idx.index].inertia = new_inertia2;
         }
-    }
-
-    fn collide_player(&mut self) {
-        let mut new_vel = V2::zero();
-        let mut new_pos = V2::zero();
-        let mut count = 0;
-        for x in 0..self.player.w {
-            for y in 0..self.player.h {
-                let px = self.player.inertia.pos.x + x as f64;
-                let py = self.player.inertia.pos.y + y as f64;
-                let ppos = V2 { x: px, y: py };
-                if !self.grid.is_in_bounds(ppos) {
-                    continue;
-                };
-                let neighbors = {
-                    let (neighbors_count, neighbors) = self.grid.get(ppos);
-                    if neighbors_count == 0 {
-                        continue;
-                    }
-                    neighbors.clone()
-                };
-                for cell_idx in neighbors.iter() {
-                    let cell = &self.cells[cell_idx.index];
-                    // let cell_mass = cell.inertia.mass;
-                    let player_inertia = Inertia {
-                        pos: V2 { x: px, y: py },
-                        ..self.player.inertia
-                    };
-                    let (new_cell_inertia, new_player_inertia) =
-                        collide(&cell.inertia, &player_inertia);
-                    log!(
-                        "collide cell_vel: {:?}, cell before: {:?}",
-                        cell_vel,
-                        cell.inertia
-                    );
-
-                    self.grid
-                        .update_cell_pos(*cell_idx, cell.inertia.pos, new_cell_inertia.pos);
-                    self.cells[cell_idx.index].inertia = new_cell_inertia;
-
-                    new_vel = new_vel
-                        .plus(new_player_inertia.velocity)
-                        .minus(player_inertia.velocity);
-                    new_pos = new_pos
-                        .plus(new_player_inertia.pos)
-                        .minus(player_inertia.pos);
-                    count += 1;
-                    log!("collide player: {:?}", player_inertia);
-                    log!("new_vel: {:?}", new_vel);
-                    log!("player_vel: {:?}", player_vel);
-                    log!("pos player: {:?}", (px, py));
-                }
-            }
-        }
-        if count > 0 {
-            self.player.inertia.velocity = Self::clamp_velocity(
-                self.player
-                    .inertia
-                    .velocity
-                    .plus(new_vel.cdiv(count as f64)),
-            );
-            self.player.inertia.pos = self.player.inertia.pos.plus(new_pos.cdiv(count as f64));
-        }
-
-        log!("final player: {:?}", self.player.inertia);
-        log!("final player: {new_vel:?}");
-        log!("--------------------");
-
-        //log!("final player: {:?}", self.player.inertia);
     }
 
     pub fn tick(&mut self) {
@@ -520,7 +452,7 @@ impl Universe {
             self.update_vel();
 
             self.calc_collisions();
-            self.collide_player();
+
             self.update_pos();
             self.zero_forces();
         }
@@ -546,7 +478,7 @@ impl Universe {
             index: self.cells.len(),
         };
         self.cells.push(Cell { index, ..cell });
-        self.grid.put(cell.inertia.pos, index);
+        self.grid.put(cell.inertia.pos.round(), index);
         self.moving_cells.push(index);
     }
 
@@ -615,11 +547,7 @@ impl Universe {
         let r = radius as i32;
         for i in -r..r {
             for j in -r..r {
-                let (px, py) = (x as i32 + i, y as i32 + j);
-                let ppos = V2 {
-                    x: px as f64,
-                    y: py as f64,
-                };
+                let ppos = V2i::new(x as i32 + i, y as i32 + j);
                 if !self.grid.is_in_bounds(ppos) {
                     continue;
                 }

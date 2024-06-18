@@ -1,18 +1,47 @@
-use wasm_bindgen::prelude::*;
-
-#[wasm_bindgen]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct V2 {
     pub x: f64,
     pub y: f64,
 }
 
-#[wasm_bindgen]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct V2i {
+    pub x: i32,
+    pub y: i32,
+}
+
+impl V2i {
+    pub fn new(x: i32, y: i32) -> V2i {
+        V2i { x, y }
+    }
+
+    pub fn to_v2(&self) -> V2 {
+        V2 {
+            x: self.x as f64,
+            y: self.y as f64,
+        }
+    }
+}
+
+fn round(x: f64) -> i32 {
+    (x + 0.5) as i32
+}
+
 impl V2 {
+    pub fn new(x: f64, y: f64) -> V2 {
+        V2 { x, y }
+    }
+
     pub fn zero() -> V2 {
         V2 { x: 0.0, y: 0.0 }
     }
 
+    pub fn round(&self) -> V2i {
+        V2i {
+            x: round(self.x),
+            y: round(self.y),
+        }
+    }
     pub fn magnitude(&self) -> f64 {
         self.magnitude_sqr().sqrt()
     }

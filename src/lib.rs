@@ -9,9 +9,9 @@ mod utils;
 mod v2;
 use color::Color;
 
-use universe::{round, Cell, CellIndex, Inertia, Stats, Universe};
+use universe::{Cell, CellIndex, Inertia, Stats, Universe};
 
-use v2::V2;
+use v2::{V2i, V2};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -52,26 +52,18 @@ impl Game {
 
         for x in 0..self.width {
             for y in 0..self.height {
-                let neighbors_count = self
-                    .universe
-                    .grid
-                    .get(V2 {
-                        x: x as f64,
-                        y: y as f64,
-                    })
-                    .0;
+                let neighbors_count = self.universe.grid.get(V2i::new(x as i32, y as i32)).0;
                 self.pixels[(y * self.width + x) as usize] -= (0x20 * neighbors_count) as u32;
             }
         }
         for cell in &self.universe.cells {
-            let x = round(cell.inertia.pos.x) as i32;
-            let y = round(cell.inertia.pos.y) as i32;
+            let pos = cell.inertia.pos.round();
 
             // out of the screen bounds
-            if !self.is_in_bounds(x, y) {
+            if !self.is_in_bounds(pos.x, pos.y) {
                 continue;
             }
-            let pixel_idx = (y * (self.width as i32) + x) as usize;
+            let pixel_idx = (pos.y * (self.width as i32) + pos.x) as usize;
             self.pixels[pixel_idx] = if cell.inertia.collision_stats > 0 {
                 0xFF0000
             } else {
