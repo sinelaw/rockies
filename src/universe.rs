@@ -184,15 +184,18 @@ pub struct UniverseGrid {
 
 impl UniverseGrid {
     fn is_in_bounds(&self, pos: V2) -> bool {
-        pos.x >= 0.0 && pos.x < self.width as f64 && pos.y >= 0.0 && pos.y < self.height as f64
+        round(pos.x) >= 0
+            && round(pos.y) >= 0
+            && round(pos.x) < self.width as i32
+            && round(pos.y) < self.height as i32
     }
 
     fn update_cell_pos(&mut self, cell_idx: CellIndex, old_pos: V2, new_pos: V2) {
         // update grid:
         if self.is_in_bounds(old_pos) {
             self.grid.remove(
-                round(old_pos.x).try_into().unwrap(),
-                round(old_pos.y).try_into().unwrap(),
+                round(old_pos.x) as usize,
+                round(old_pos.y) as usize,
                 cell_idx,
             )
         }
@@ -202,11 +205,9 @@ impl UniverseGrid {
     }
 
     pub fn put(&mut self, pos: V2, cell_idx: CellIndex) {
-        self.grid.put(
-            round(pos.x).try_into().unwrap(),
-            round(pos.y).try_into().unwrap(),
-            cell_idx,
-        )
+        assert!(self.is_in_bounds(pos));
+        self.grid
+            .put(round(pos.x) as usize, round(pos.y) as usize, cell_idx)
     }
 
     pub fn get(&self, pos: V2) -> (usize, &Vec<CellIndex>) {
@@ -473,7 +474,10 @@ impl Universe {
                         cell.inertia
                     );
 
+                    self.grid
+                        .update_cell_pos(*cell_idx, cell.inertia.pos, new_cell_inertia.pos);
                     self.cells[cell_idx.index].inertia = new_cell_inertia;
+
                     new_vel = new_vel
                         .plus(new_player_inertia.velocity)
                         .minus(player_inertia.velocity);
