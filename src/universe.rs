@@ -88,12 +88,12 @@ impl Stats {
 }
 
 pub struct Player {
-    w: usize,
-    h: usize,
-    inertia: Inertia,
+    pub w: usize,
+    pub h: usize,
+    pub inertia: Inertia,
 
     frame: usize,
-    direction: i8,
+    pub direction: i32,
 }
 
 impl Player {
@@ -132,7 +132,7 @@ impl Player {
     }
 
     pub fn move_up(&mut self) {
-        self.inertia.velocity.y = -10.0;
+        self.inertia.velocity.y = -1.0;
     }
 
     pub fn move_down(&mut self) {
@@ -272,7 +272,9 @@ impl Universe {
                 };
                 let (_, neighbors) = self.grid.get(pos.round());
                 for cell in neighbors {
-                    if Self::is_collision(&player_part, &self.cells[cell.index].inertia) {
+                    let cell_inertia = &self.cells[cell.index].inertia;
+
+                    if Self::is_collision(&player_part, cell_inertia) {
                         return Inertia {
                             velocity: V2::zero(),
                             pos: self.player.inertia.pos.round().to_v2(),

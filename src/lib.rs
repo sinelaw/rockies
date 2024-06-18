@@ -86,6 +86,16 @@ impl Game {
             'd' => self.universe.player.move_right(),
             'w' => self.universe.player.move_up(),
             's' => self.universe.player.move_down(),
+            ' ' => {
+                let pos: V2i = self.universe.player.inertia.pos.round();
+                for x in 0..self.universe.player.w {
+                    self.universe.unstick_cells(
+                        (pos.x + x as i32) as usize,
+                        (pos.y) as usize,
+                        self.universe.player.h - 1,
+                    );
+                }
+            }
             _ => (),
         }
     }

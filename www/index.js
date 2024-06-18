@@ -118,7 +118,14 @@ canvas.ontouchmove = (e) => {
     game.click(x / (CELL_SIZE + 1), y / (CELL_SIZE + 1));
 };
 
+const heldKeys = new Set();
+
 document.onkeydown = (e) => {
-    e.preventDefault();
-    game.key(e.key);
+    heldKeys.add(e.key);
+    for (let key of heldKeys) {
+        game.key(key);
+    }
+};
+document.onkeyup = (e) => {
+    heldKeys.delete(e.key);
 };
