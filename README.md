@@ -14,16 +14,18 @@ Rockies is a simple physics simulation written in Rust and WebAssembly, designed
 1. **Clone the repository:**
    ```bash
    git clone https://github.com/sinelaw/rockies.git
-```
+   ```
 
 2. **Build the project:**
 
-```bash
-cd rockies
-cargo build --target=wasm32-unknown-unknown
-```
+   ```bash
+   cd rockies
+   cargo build
+   wasm-pack build
+   npm run start 
+   ```
 
-3. **Run the simulation:** Open index.html in your web browser.
+3. **Run the simulation:** Open http://localhost:8080/ in your web browser.
 
 # Usage
 
