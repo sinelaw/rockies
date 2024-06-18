@@ -253,21 +253,22 @@ impl Universe {
             .inertia
             .pos
             .plus(self.player.inertia.velocity.cmul(self.dt));
-        let player_offset = new_player_pos.minus(self.player.inertia.pos);
-        if player_offset.magnitude_sqr() <= 1.0 {
+        if new_player_pos.round() == self.player.inertia.pos.round() {
             return new_player_pos;
         }
+        // position changed, check if colliding
         for x in 0..self.player.w {
             for y in 0..self.player.h {
                 let pos = V2 {
                     x: self.player.inertia.pos.x + x as f64,
                     y: self.player.inertia.pos.y + y as f64,
                 };
-                if self.grid.is_in_bounds(pos.round()) {
-                    let (neighbor_count, _) = self.grid.get(pos.round());
-                    if neighbor_count > 0 {
-                        return self.player.inertia.pos;
-                    }
+                if !self.grid.is_in_bounds(pos.round()) {
+                    continue;
+                }
+                let (neighbor_count, _) = self.grid.get(pos.round());
+                if neighbor_count > 0 {
+                    return self.player.inertia.pos;
                 }
             }
         }
