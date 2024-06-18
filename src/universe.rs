@@ -91,7 +91,7 @@ pub struct Player {
     w: usize,
     h: usize,
     inertia: Inertia,
-    self_force: V2,
+
     frame: usize,
     direction: i8,
 }
@@ -111,7 +111,7 @@ impl Player {
                 elasticity: 0.0,
                 collision_stats: 0,
             },
-            self_force: V2::zero(),
+
             direction: 0,
             frame: 0,
         }
@@ -122,21 +122,21 @@ impl Player {
     }
 
     pub fn move_left(&mut self) {
-        self.inertia.velocity.x = 1.0;
+        self.inertia.velocity.x += -1.0;
         self.direction = -1;
     }
 
     pub fn move_right(&mut self) {
-        self.inertia.velocity.x = 1.0;
+        self.inertia.velocity.x += 1.0;
         self.direction = 1;
     }
 
     pub fn move_up(&mut self) {
-        self.inertia.velocity.y = -1.0;
+        self.inertia.velocity.y += -1.0;
     }
 
     pub fn move_down(&mut self) {
-        self.inertia.velocity.y = 1.0;
+        self.inertia.velocity.y += 1.0;
     }
 
     pub fn render(&self, pixels: &mut Vec<u32>, buf_width: usize, buf_height: usize) -> () {
@@ -231,7 +231,6 @@ impl Universe {
             .player
             .inertia
             .force
-            .plus(self.player.self_force)
             .plus(self.gravity.cmul(self.player.inertia.mass as f64));
 
         for cell in &mut self.cells {
@@ -269,9 +268,13 @@ impl Universe {
                 if !self.grid.is_in_bounds(pos.round()) {
                     continue;
                 }
+                let player_part = Inertia {
+                    pos: pos,
+                    ..self.player.inertia
+                };
                 let (_, neighbors) = self.grid.get(pos.round());
                 for cell in neighbors {
-                    if Self::is_collision(&self.player.inertia, &self.cells[cell.index].inertia) {
+                    if Self::is_collision(&player_part, &self.cells[cell.index].inertia) {
                         return self.player.inertia.pos;
                     }
                 }
@@ -323,15 +326,15 @@ impl Universe {
     }
 
     fn update_vel(&mut self) {
-        self.player.inertia.velocity = Self::clamp_velocity(
+        self.player.inertia.velocity =// Self::clamp_velocity(
             self.player.inertia.velocity.plus(
                 self.player
                     .inertia
                     .force
                     .cdiv(self.player.inertia.mass as f64)
                     .cmul(self.dt),
-            ),
-        );
+            );
+        //);
 
         //        log!("update_vel: player: {:?}", self.player.inertia);
 
@@ -358,6 +361,8 @@ impl Universe {
         if (inertia1.mass == 0) && (inertia2.mass == 0) {
             return false;
         }
+
+        log!("checking collision: \n1: {inertia1:?}\n2: {inertia2:?}");
 
         let normal = inertia1.pos.minus(inertia2.pos);
         let radius = 1.0; // they're actually boxes but ok
