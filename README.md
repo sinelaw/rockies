@@ -22,6 +22,7 @@ Rockies is a simple physics simulation written in Rust and WebAssembly, designed
    cd rockies
    cargo build
    wasm-pack build
+   cd www
    npm run start 
    ```
 
