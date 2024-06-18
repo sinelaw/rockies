@@ -12,7 +12,7 @@ const MAX_CELLS: usize = 4096;
 // A macro to provide `println!(..)`-style syntax for `console.log` logging.
 macro_rules! log {
     ( $( $t:tt )* ) => {
-            web_sys::console::log_1(&format!( $( $t )* ).into())
+        //   web_sys::console::log_1(&format!( $( $t )* ).into())
         // println!( $( $t )* );
     };
 }
@@ -132,7 +132,7 @@ impl Player {
     }
 
     pub fn move_up(&mut self) {
-        self.inertia.velocity.y = -1.0;
+        self.inertia.velocity.y = -10.0;
     }
 
     pub fn move_down(&mut self) {
@@ -275,6 +275,7 @@ impl Universe {
                     if Self::is_collision(&player_part, &self.cells[cell.index].inertia) {
                         return Inertia {
                             velocity: V2::zero(),
+                            pos: self.player.inertia.pos.round().to_v2(),
                             ..self.player.inertia
                         };
                     }
