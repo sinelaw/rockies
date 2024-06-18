@@ -122,21 +122,21 @@ impl Player {
     }
 
     pub fn move_left(&mut self) {
-        self.inertia.velocity.x = -1.0;
+        self.inertia.velocity.x = -0.5;
         self.direction = -1;
     }
 
     pub fn move_right(&mut self) {
-        self.inertia.velocity.x = 1.0;
+        self.inertia.velocity.x = 0.5;
         self.direction = 1;
     }
 
     pub fn move_up(&mut self) {
-        self.inertia.velocity.y = -1.0;
+        self.inertia.velocity.y = -0.5;
     }
 
     pub fn move_down(&mut self) {
-        self.inertia.velocity.y = 1.0;
+        self.inertia.velocity.y = 0.5;
     }
 
     pub fn render(&self, pixels: &mut Vec<u32>, buf_width: usize, buf_height: usize) -> () {
@@ -207,15 +207,16 @@ pub struct Universe {
     pub cells: Vec<Cell>,
     moving_cells: Vec<CellIndex>,
     pub grid: UniverseGrid,
-    // transient data:
-    collisions_list: Vec<(CellIndex, CellIndex)>,
-    collisions_map: IntPairSet,
 
     gravity: V2,
     dt: f64,
     stats: Stats,
 
     pub player: Player,
+
+    // transient data:
+    collisions_list: Vec<(CellIndex, CellIndex)>,
+    collisions_map: IntPairSet,
 }
 
 fn inverse_mass(mass: i32) -> f64 {
@@ -572,7 +573,8 @@ impl Universe {
         res
     }
 
-    pub fn unstick_cells(&mut self, x: usize, y: usize, radius: usize) {
+    fn get_cells(&self, x: usize, y: usize, radius: usize) -> Vec<CellIndex> {
+        let mut res = Vec::new();
         let r = radius as i32;
         for i in -r..r {
             for j in -r..r {
@@ -581,20 +583,25 @@ impl Universe {
                     continue;
                 }
                 let (neighbors_count, neighbors) = self.grid.get(ppos);
-                let w = self.grid.width as f64;
-                for cell_idx in &neighbors[0..neighbors_count] {
-                    let cell = &mut self.cells[cell_idx.index];
-                    if cell.inertia.mass > 0 {
-                        continue;
-                    }
-                    cell.unset_static();
-                    self.moving_cells.push(*cell_idx);
-                    cell.inertia.velocity = V2 {
-                        x: 2.0 * (x as f64 - w / 2.0) / w,
-                        y: -1.0, //(cell_idx.index % 10 - 5) as f64 / 10000.0 * self.dt,
-                    };
-                }
+                res.extend_from_slice(&neighbors[0..neighbors_count]);
             }
+        }
+        res
+    }
+
+    pub fn unstick_cells(&mut self, x: usize, y: usize, radius: usize) {
+        let w = self.grid.width as f64;
+        for cell_idx in self.get_cells(x, y, radius) {
+            let cell = &mut self.cells[cell_idx.index];
+            if cell.inertia.mass > 0 {
+                continue;
+            }
+            cell.unset_static();
+            self.moving_cells.push(cell_idx);
+            cell.inertia.velocity = V2 {
+                x: 2.0 * (x as f64 - w / 2.0) / w,
+                y: -1.0, //(cell_idx.index % 10 - 5) as f64 / 10000.0 * self.dt,
+            };
         }
     }
 }
