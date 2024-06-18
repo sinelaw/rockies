@@ -12,7 +12,7 @@ const MAX_CELLS: usize = 4096;
 // A macro to provide `println!(..)`-style syntax for `console.log` logging.
 macro_rules! log {
     ( $( $t:tt )* ) => {
-        //    web_sys::console::log_1(&format!( $( $t )* ).into())
+            web_sys::console::log_1(&format!( $( $t )* ).into())
         // println!( $( $t )* );
     };
 }
@@ -122,21 +122,21 @@ impl Player {
     }
 
     pub fn move_left(&mut self) {
-        self.inertia.velocity.x += -1.0;
+        self.inertia.velocity.x = -1.0;
         self.direction = -1;
     }
 
     pub fn move_right(&mut self) {
-        self.inertia.velocity.x += 1.0;
+        self.inertia.velocity.x = 1.0;
         self.direction = 1;
     }
 
     pub fn move_up(&mut self) {
-        self.inertia.velocity.y += -1.0;
+        self.inertia.velocity.y = -1.0;
     }
 
     pub fn move_down(&mut self) {
-        self.inertia.velocity.y += 1.0;
+        self.inertia.velocity.y = 1.0;
     }
 
     pub fn render(&self, pixels: &mut Vec<u32>, buf_width: usize, buf_height: usize) -> () {
@@ -248,22 +248,20 @@ impl Universe {
         // self.player.self_force = V2::zero();
     }
 
-    fn get_next_player_pos(&mut self) -> V2 {
+    fn get_next_player_inertia(&self) -> Inertia {
         log!("player pos: {:?}", self.player.inertia.pos);
         let new_player_pos = self
             .player
             .inertia
             .pos
             .plus(self.player.inertia.velocity.cmul(self.dt));
-        if new_player_pos.round() == self.player.inertia.pos.round() {
-            return new_player_pos;
-        }
+        //if new_player_pos.round() != self.player.inertia.pos.round() {
         // position changed, check if colliding
         for x in 0..self.player.w {
             for y in 0..self.player.h {
                 let pos = V2 {
-                    x: self.player.inertia.pos.x + x as f64,
-                    y: self.player.inertia.pos.y + y as f64,
+                    x: new_player_pos.x + x as f64,
+                    y: new_player_pos.y + y as f64,
                 };
                 if !self.grid.is_in_bounds(pos.round()) {
                     continue;
@@ -275,16 +273,23 @@ impl Universe {
                 let (_, neighbors) = self.grid.get(pos.round());
                 for cell in neighbors {
                     if Self::is_collision(&player_part, &self.cells[cell.index].inertia) {
-                        return self.player.inertia.pos;
+                        return Inertia {
+                            velocity: V2::zero(),
+                            ..self.player.inertia
+                        };
                     }
                 }
             }
         }
-        new_player_pos
+        //}
+        return Inertia {
+            pos: new_player_pos,
+            ..self.player.inertia
+        };
     }
 
     fn update_pos(&mut self) {
-        self.player.inertia.pos = self.get_next_player_pos();
+        self.player.inertia = self.get_next_player_inertia();
 
         // some previously static cells may now need to be in moving_cells
         self.moving_cells.clear();
@@ -362,8 +367,6 @@ impl Universe {
             return false;
         }
 
-        log!("checking collision: \n1: {inertia1:?}\n2: {inertia2:?}");
-
         let normal = inertia1.pos.minus(inertia2.pos);
         let radius = 1.0; // they're actually boxes but ok
         if normal.magnitude_sqr() > radius * radius {
@@ -374,11 +377,14 @@ impl Universe {
 
         // if the dot product is negative, the two objects are colliding,
         let dot = rel_velocity.dot(normal);
-        if dot > 0.0 {
+
+        log!("checking collision: dot: {dot:?}\n1: {inertia1:?}\n2: {inertia2:?}");
+
+        if dot >= 0.0 {
             // moving away from each other
             return false;
         }
-        if dot * dot < 0.0001 {
+        if dot * dot < 0.00001 {
             // negligible velocity (floating point error)
             return false;
         }
