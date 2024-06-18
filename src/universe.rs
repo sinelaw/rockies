@@ -220,6 +220,8 @@ pub struct Universe {
     dt: f64,
     stats: Stats,
 
+    next_cell_index: usize,
+
     pub player: Player,
 
     // transient data:
@@ -511,9 +513,10 @@ impl Universe {
             return;
         }
 
+        self.next_cell_index += 1;
         self.stats.cells_count += 1;
         let index = CellIndex {
-            index: self.cells.len(),
+            index: self.next_cell_index,
         };
         self.cells.insert(index, Cell { index, ..cell });
         self.grid.put(cell.inertia.pos.round(), index);
@@ -546,6 +549,7 @@ impl Universe {
 
             gravity: V2 { x: 0.0, y: 0.1 },
             dt: 0.01,
+            next_cell_index: 0,
             stats: Stats::zero(),
 
             collisions_list: Vec::new(),
