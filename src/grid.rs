@@ -14,7 +14,7 @@ impl<T: Default + PartialEq> GridCell<T> {
         }
     }
 
-    pub fn get(&self, version: usize) -> (usize, &[T]) {
+    pub fn get(&self, version: usize) -> (usize, &Vec<T>) {
         let count = if version != self.version {
             0
         } else {
@@ -85,7 +85,7 @@ impl<T: Default + Copy + Hash + Clone + Eq> Grid<T> {
         self.version += 1;
     } */
 
-    pub fn get(&self, x: usize, y: usize) -> (usize, &[T]) {
+    pub fn get(&self, x: usize, y: usize) -> (usize, &Vec<T>) {
         assert!(x < self.width);
         assert!(y < self.height);
         self.grid[grid_index(x + 1, y + 1, self.height)].get(self.version)

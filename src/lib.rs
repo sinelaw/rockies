@@ -52,7 +52,14 @@ impl Game {
 
         for x in 0..self.width {
             for y in 0..self.height {
-                let neighbors_count = self.universe.grid.get(x as usize, y as usize).0;
+                let neighbors_count = self
+                    .universe
+                    .grid
+                    .get(V2 {
+                        x: x as f64,
+                        y: y as f64,
+                    })
+                    .0;
                 self.pixels[(y * self.width + x) as usize] -= (0x20 * neighbors_count) as u32;
             }
         }
