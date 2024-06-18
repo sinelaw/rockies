@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::assets;
 use crate::color::Color;
 use crate::grid::Grid;
@@ -204,7 +206,7 @@ impl UniverseGrid {
 }
 
 pub struct Universe {
-    pub cells: Vec<Cell>,
+    pub cells: HashMap<CellIndex, Cell>,
     moving_cells: Vec<CellIndex>,
     pub grid: UniverseGrid,
 
@@ -234,7 +236,7 @@ impl Universe {
             .force
             .plus(self.gravity.cmul(self.player.inertia.mass as f64));
 
-        for cell in &mut self.cells {
+        for (_, cell) in &mut self.cells {
             if cell.inertia.mass > 0 {
                 cell.inertia.force = self.gravity.cmul(cell.inertia.mass as f64);
             }
@@ -242,7 +244,7 @@ impl Universe {
     }
 
     fn zero_forces(&mut self) {
-        for cell in &mut self.cells {
+        for (_, cell) in &mut self.cells {
             cell.inertia.force = V2::zero();
         }
         self.player.inertia.force = V2::zero();
@@ -272,8 +274,8 @@ impl Universe {
                     ..self.player.inertia
                 };
                 let (_, neighbors) = self.grid.get(pos.round());
-                for cell in neighbors {
-                    let cell_inertia = &self.cells[cell.index].inertia;
+                for cell_idx in neighbors {
+                    let cell_inertia = &self.cells[cell_idx].inertia;
 
                     if Self::is_collision(&player_part, cell_inertia) {
                         return Inertia {
@@ -297,7 +299,7 @@ impl Universe {
 
         // some previously static cells may now need to be in moving_cells
         self.moving_cells.clear();
-        for cell in &self.cells {
+        for (_, cell) in &self.cells {
             if !self.grid.is_in_bounds(cell.inertia.pos.round()) {
                 continue;
             }
@@ -308,7 +310,7 @@ impl Universe {
         }
         // update grid and positions
         for cell_index in &self.moving_cells {
-            let cell = &self.cells[cell_index.index];
+            let cell = self.cells.get(cell_index).unwrap();
             let old_pos = cell.inertia.pos;
             let new_pos = cell.inertia.pos.plus(cell.inertia.velocity.cmul(self.dt));
 
@@ -316,12 +318,12 @@ impl Universe {
             self.grid
                 .update_cell_pos(*cell_index, old_pos.round(), new_pos.round());
             // update position:
-            self.cells[cell_index.index].inertia.pos = new_pos;
+            self.cells.get_mut(cell_index).unwrap().inertia.pos = new_pos;
         }
     }
 
     fn log_cells(&self) {
-        for cell in &self.cells {
+        for (_, cell) in &self.cells {
             if cell.inertia.mass == 0 {
                 continue;
             }
@@ -347,7 +349,7 @@ impl Universe {
 
         //        log!("update_vel: player: {:?}", self.player.inertia);
 
-        for cell in &mut self.cells {
+        for (_, cell) in &mut self.cells {
             if cell.inertia.mass > 0 {
                 cell.inertia.velocity = Self::clamp_velocity(
                     cell.inertia.velocity.plus(
@@ -401,7 +403,7 @@ impl Universe {
         self.collisions_list.clear();
 
         for cell1_idx in self.moving_cells.iter() {
-            let cell1 = &self.cells[cell1_idx.index];
+            let cell1 = &self.cells[cell1_idx];
 
             if !self.grid.is_in_bounds(cell1.inertia.pos.round()) {
                 continue;
@@ -425,7 +427,7 @@ impl Universe {
 
                 self.stats.collision_pairs_tested += 1;
 
-                let cell2 = &self.cells[cell2_idx.index];
+                let cell2 = &self.cells[cell2_idx];
                 let inertia1 = &cell1.inertia;
                 let inertia2 = &cell2.inertia;
 
@@ -445,16 +447,16 @@ impl Universe {
         self.collect_collisions();
         self.stats.collisions_count += self.collisions_list.len();
         for (cell1_idx, cell2_idx) in self.collisions_list.iter() {
-            let inertia2 = &self.cells[cell2_idx.index].inertia;
-            let inertia1 = &self.cells[cell1_idx.index].inertia;
+            let inertia2 = &self.cells[cell2_idx].inertia;
+            let inertia1 = &self.cells[cell1_idx].inertia;
 
             // static cell is involved, make them both static
             if ((inertia1.mass == 0) || (inertia2.mass == 0))
                 && (inertia1.velocity.magnitude_sqr() < self.velocity_threshold())
                 && (inertia2.velocity.magnitude_sqr() < self.velocity_threshold())
             {
-                self.cells[cell1_idx.index].set_static();
-                self.cells[cell2_idx.index].set_static();
+                self.cells.get_mut(cell1_idx).unwrap().set_static();
+                self.cells.get_mut(cell2_idx).unwrap().set_static();
 
                 continue;
             }
@@ -466,8 +468,8 @@ impl Universe {
             self.grid
                 .update_cell_pos(*cell2_idx, inertia2.pos.round(), new_inertia2.pos.round());
 
-            self.cells[cell1_idx.index].inertia = new_inertia1;
-            self.cells[cell2_idx.index].inertia = new_inertia2;
+            self.cells.get_mut(cell1_idx).unwrap().inertia = new_inertia1;
+            self.cells.get_mut(cell2_idx).unwrap().inertia = new_inertia2;
         }
     }
 
@@ -507,7 +509,7 @@ impl Universe {
         let index = CellIndex {
             index: self.cells.len(),
         };
-        self.cells.push(Cell { index, ..cell });
+        self.cells.insert(index, Cell { index, ..cell });
         self.grid.put(cell.inertia.pos.round(), index);
         self.moving_cells.push(index);
     }
@@ -528,7 +530,7 @@ impl Universe {
     }
     pub fn new(width: usize, height: usize) -> Universe {
         let mut uni = Universe {
-            cells: Vec::new(),
+            cells: HashMap::new(),
             moving_cells: Vec::new(),
             grid: UniverseGrid {
                 grid: Grid::new(width as usize, height as usize),
@@ -562,7 +564,7 @@ impl Universe {
     }
 
     fn reset_cells(&mut self) {
-        for cell in &mut self.cells {
+        for (_, cell) in &mut self.cells {
             cell.inertia.collision_stats = 0;
         }
     }
@@ -592,7 +594,7 @@ impl Universe {
     pub fn unstick_cells(&mut self, x: usize, y: usize, radius: usize) {
         let w = self.grid.width as f64;
         for cell_idx in self.get_cells(x, y, radius) {
-            let cell = &mut self.cells[cell_idx.index];
+            let cell = self.cells.get_mut(&cell_idx).unwrap();
             if cell.inertia.mass > 0 {
                 continue;
             }

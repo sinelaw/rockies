@@ -56,7 +56,7 @@ impl Game {
                 self.pixels[(y * self.width + x) as usize] -= (0x20 * neighbors_count) as u32;
             }
         }
-        for cell in &self.universe.cells {
+        for (_, cell) in &self.universe.cells {
             let pos = cell.inertia.pos.round();
 
             // out of the screen bounds
