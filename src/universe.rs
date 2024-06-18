@@ -93,6 +93,7 @@ pub struct Player {
     inertia: Inertia,
     self_force: V2,
     frame: usize,
+    direction: i8,
 }
 
 impl Player {
@@ -111,7 +112,7 @@ impl Player {
                 collision_stats: 0,
             },
             self_force: V2::zero(),
-
+            direction: 0,
             frame: 0,
         }
     }
@@ -121,23 +122,21 @@ impl Player {
     }
 
     pub fn move_left(&mut self) {
-        self.inertia.pos.x -= 1.0;
-        //self.inertia.velocity.x = -1.0;
+        self.inertia.velocity.x = 1.0;
+        self.direction = -1;
     }
 
     pub fn move_right(&mut self) {
-        self.inertia.pos.x += 1.0;
-        //self.inertia.velocity.x = 1.0;
+        self.inertia.velocity.x = 1.0;
+        self.direction = 1;
     }
 
     pub fn move_up(&mut self) {
-        self.inertia.pos.y -= 1.0;
-        //self.inertia.velocity.x = -1.0;
+        self.inertia.velocity.y = -1.0;
     }
 
     pub fn move_down(&mut self) {
-        self.inertia.pos.y += 1.0;
-        //self.inertia.velocity.x = 1.0;
+        self.inertia.velocity.y = 1.0;
     }
 
     pub fn render(&self, pixels: &mut Vec<u32>, buf_width: usize, buf_height: usize) -> () {
@@ -150,7 +149,11 @@ impl Player {
         for x in 0..w {
             for y in 0..h {
                 let py = self.inertia.pos.y + y as f64;
-                let px = self.inertia.pos.x + x as f64;
+                let px = if self.direction >= 0 {
+                    self.inertia.pos.x + x as f64
+                } else {
+                    self.inertia.pos.x + (w - x - 1) as f64
+                };
                 if Self::in_bounds(px, py, buf_width, buf_height) {
                     let c = colors[x + y * w];
                     if c.r == 0 && c.g == 0 && c.b == 0 {
@@ -266,9 +269,11 @@ impl Universe {
                 if !self.grid.is_in_bounds(pos.round()) {
                     continue;
                 }
-                let (neighbor_count, _) = self.grid.get(pos.round());
-                if neighbor_count > 0 {
-                    return self.player.inertia.pos;
+                let (_, neighbors) = self.grid.get(pos.round());
+                for cell in neighbors {
+                    if Self::is_collision(&self.player.inertia, &self.cells[cell.index].inertia) {
+                        return self.player.inertia.pos;
+                    }
                 }
             }
         }
@@ -348,6 +353,34 @@ impl Universe {
         self.dt / 10.0
     }
 
+    fn is_collision(inertia1: &Inertia, inertia2: &Inertia) -> bool {
+        // collision between infinite masses?!
+        if (inertia1.mass == 0) && (inertia2.mass == 0) {
+            return false;
+        }
+
+        let normal = inertia1.pos.minus(inertia2.pos);
+        let radius = 1.0; // they're actually boxes but ok
+        if normal.magnitude_sqr() > radius * radius {
+            return false;
+        }
+
+        let rel_velocity = inertia1.velocity.minus(inertia2.velocity);
+
+        // if the dot product is negative, the two objects are colliding,
+        let dot = rel_velocity.dot(normal);
+        if dot > 0.0 {
+            // moving away from each other
+            return false;
+        }
+        if dot * dot < 0.0001 {
+            // negligible velocity (floating point error)
+            return false;
+        }
+
+        return true;
+    }
+
     fn collect_collisions(&mut self) {
         self.collisions_map.clear();
         self.collisions_list.clear();
@@ -378,31 +411,12 @@ impl Universe {
                 self.stats.collision_pairs_tested += 1;
 
                 let cell2 = &self.cells[cell2_idx.index];
-                // collision between infinite masses?!
-                if (cell1.inertia.mass == 0) && (cell2.inertia.mass == 0) {
-                    continue;
-                }
+                let inertia1 = &cell1.inertia;
+                let inertia2 = &cell2.inertia;
 
-                let normal = cell1.inertia.pos.minus(cell2.inertia.pos);
-                let radius = 1.0; // they're actually boxes but ok
-                if normal.magnitude_sqr() > radius * radius {
-                    continue;
+                if Self::is_collision(inertia1, inertia2) {
+                    self.collisions_list.push((*cell1_idx, *cell2_idx));
                 }
-
-                let rel_velocity = cell1.inertia.velocity.minus(cell2.inertia.velocity);
-
-                // if the dot product is negative, the two objects are colliding,
-                let dot = rel_velocity.dot(normal);
-                if dot > 0.0 {
-                    // moving away from each other
-                    continue;
-                }
-                if dot * dot < 0.0001 {
-                    // negligible velocity (floating point error)
-                    continue;
-                }
-
-                self.collisions_list.push((*cell1_idx, *cell2_idx));
 
                 // log!("cell1: {cell1:?}");
                 // log!("cell2: {cell2:?}");
