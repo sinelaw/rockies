@@ -1,4 +1,5 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::iter::FromIterator;
 
 use crate::assets;
 use crate::color::Color;
@@ -14,7 +15,7 @@ const MAX_CELLS: usize = 4096;
 // A macro to provide `println!(..)`-style syntax for `console.log` logging.
 macro_rules! log {
     ( $( $t:tt )* ) => {
-        //   web_sys::console::log_1(&format!( $( $t )* ).into())
+          web_sys::console::log_1(&format!( $( $t )* ).into())
         // println!( $( $t )* );
     };
 }
@@ -186,12 +187,17 @@ impl UniverseGrid {
     fn update_cell_pos(&mut self, cell_idx: CellIndex, old_pos: V2i, new_pos: V2i) {
         // update grid:
         if self.is_in_bounds(old_pos) {
-            self.grid
-                .remove((old_pos.x) as usize, (old_pos.y) as usize, cell_idx)
+            self.remove(old_pos, cell_idx);
         }
         if self.is_in_bounds(new_pos) {
             self.put(new_pos, cell_idx);
         }
+    }
+
+    pub fn remove(&mut self, pos: V2i, cell_idx: CellIndex) {
+        assert!(self.is_in_bounds(pos));
+        self.grid
+            .remove((pos.x) as usize, (pos.y) as usize, cell_idx)
     }
 
     pub fn put(&mut self, pos: V2i, cell_idx: CellIndex) {
@@ -252,7 +258,7 @@ impl Universe {
     }
 
     fn get_next_player_inertia(&self) -> Inertia {
-        log!("player pos: {:?}", self.player.inertia.pos);
+        //log!("player pos: {:?}", self.player.inertia.pos);
         let new_player_pos = self
             .player
             .inertia
@@ -384,7 +390,7 @@ impl Universe {
         // if the dot product is negative, the two objects are colliding,
         let dot = rel_velocity.dot(normal);
 
-        log!("checking collision: dot: {dot:?}\n1: {inertia1:?}\n2: {inertia2:?}");
+        //log!("checking collision: dot: {dot:?}\n1: {inertia1:?}\n2: {inertia2:?}");
 
         if dot >= 0.0 {
             // moving away from each other
@@ -604,6 +610,22 @@ impl Universe {
                 x: 2.0 * (x as f64 - w / 2.0) / w,
                 y: -1.0, //(cell_idx.index % 10 - 5) as f64 / 10000.0 * self.dt,
             };
+        }
+    }
+
+    pub fn remove_cells(&mut self, x: usize, y: usize, radius: usize) {
+        let cells_to_remove: HashSet<CellIndex> = HashSet::from_iter(
+            self.get_cells(x, y, radius)
+                .iter()
+                // don't remove cells that may be interacting (in moving_cells)
+                .filter(|cell_idx| self.cells.get_mut(&cell_idx).unwrap().inertia.mass == 0)
+                .map(|cell_idx| *cell_idx),
+        );
+        for cell_idx in cells_to_remove {
+            let cell = self.cells.get_mut(&cell_idx).unwrap();
+            self.grid.remove(cell.inertia.pos.round(), cell_idx);
+            self.cells.remove(&cell_idx);
+            log!("removed: {cell_idx:?}");
         }
     }
 }

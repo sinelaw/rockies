@@ -26,6 +26,7 @@ pub struct Game {
 impl Game {
     pub fn new(width: usize, height: usize) -> Self {
         utils::set_panic_hook();
+        console_error_panic_hook::set_once();
         Self {
             width,
             height,
@@ -89,7 +90,7 @@ impl Game {
             ' ' => {
                 let pos: V2i = self.universe.player.inertia.pos.round();
                 for x in 0..self.universe.player.w {
-                    self.universe.unstick_cells(
+                    self.universe.remove_cells(
                         (pos.x + x as i32) as usize,
                         (pos.y) as usize,
                         self.universe.player.h - 1,
