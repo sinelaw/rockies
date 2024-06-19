@@ -120,26 +120,30 @@ impl Player {
         }
     }
 
-    pub fn next_frame(&mut self) {
+    fn next_frame(&mut self) {
         self.frame += 1;
     }
 
     pub fn move_left(&mut self) {
         self.inertia.velocity.x = -0.5;
         self.direction = -1;
+        self.next_frame();
     }
 
     pub fn move_right(&mut self) {
         self.inertia.velocity.x = 0.5;
         self.direction = 1;
+        self.next_frame();
     }
 
     pub fn move_up(&mut self) {
         self.inertia.velocity.y = -0.5;
+        self.next_frame();
     }
 
     pub fn move_down(&mut self) {
         self.inertia.velocity.y = 0.5;
+        self.next_frame();
     }
 
     pub fn render(&self, pixels: &mut Vec<u32>, buf_width: usize, buf_height: usize) -> () {
@@ -170,6 +174,63 @@ impl Player {
 
     fn in_bounds(x: f64, y: f64, buf_width: usize, buf_height: usize) -> bool {
         x >= 0.0 && y >= 0.0 && x < buf_width as f64 && y < buf_height as f64
+    }
+
+    pub fn update_pos(&mut self, cells: &UniverseCells, dt: f64) {
+        self.inertia = self.get_next_player_inertia(cells, dt);
+    }
+
+    fn get_next_player_inertia(&self, cells: &UniverseCells, dt: f64) -> Inertia {
+        //log!("player pos: {:?}", self.inertia.pos);
+        let new_player_pos = self.inertia.pos.plus(self.inertia.velocity.cmul(dt));
+        //if new_player_pos.round() != self.inertia.pos.round() {
+        // position changed, check if colliding
+        for x in 0..self.w {
+            for y in 0..self.h {
+                let pos = V2 {
+                    x: new_player_pos.x + x as f64,
+                    y: new_player_pos.y + y as f64,
+                };
+                if !cells.grid.is_in_bounds(pos.round()) {
+                    continue;
+                }
+                let player_part = Inertia {
+                    pos: pos,
+                    ..self.inertia
+                };
+                let (_, neighbors) = cells.grid.get(pos.round());
+                for cell_idx in neighbors {
+                    let cell_inertia = &cells.cells[cell_idx].inertia;
+
+                    if is_collision(&player_part, cell_inertia) {
+                        return Inertia {
+                            velocity: V2::zero(),
+                            pos: self.inertia.pos.round().to_v2(),
+                            ..self.inertia
+                        };
+                    }
+                }
+            }
+        }
+        //}
+        return Inertia {
+            pos: new_player_pos,
+            ..self.inertia
+        };
+    }
+
+    pub fn calc_forces(&mut self, gravity: V2) {
+        self.inertia.force = self
+            .inertia
+            .force
+            .plus(gravity.cmul(self.inertia.mass as f64));
+    }
+
+    pub fn update_velocity(&mut self, dt: f64) {
+        self.inertia.velocity = self
+            .inertia
+            .velocity
+            .plus(self.inertia.force.cdiv(self.inertia.mass as f64).cmul(dt));
     }
 }
 
@@ -211,42 +272,52 @@ impl UniverseGrid {
     }
 }
 
-pub struct Universe {
+fn clamp_velocity(v: V2) -> V2 {
+    let max = V2 { x: 1.0, y: 1.0 };
+    let min = V2 { x: -1.0, y: -1.0 };
+    return v.min(max).max(min);
+}
+
+fn velocity_threshold(dt: f64) -> f64 {
+    dt / 10.0
+}
+
+pub struct UniverseCells {
     pub cells: HashMap<CellIndex, Cell>,
     moving_cells: Vec<CellIndex>,
     pub grid: UniverseGrid,
 
-    gravity: V2,
-    dt: f64,
-    stats: Stats,
-
     next_cell_index: usize,
 
-    pub player: Player,
-
+    stats: Stats,
     // transient data:
     collisions_list: Vec<(CellIndex, CellIndex)>,
     collisions_map: IntPairSet,
 }
 
-fn inverse_mass(mass: i32) -> f64 {
-    if mass == 0 {
-        return 0.0;
+impl UniverseCells {
+    fn new(width: usize, height: usize) -> UniverseCells {
+        UniverseCells {
+            cells: HashMap::new(),
+            moving_cells: Vec::new(),
+            grid: UniverseGrid {
+                grid: Grid::new(width as usize, height as usize),
+                width: width,
+                height: height,
+            },
+
+            next_cell_index: 0,
+            stats: Stats::zero(),
+
+            collisions_list: Vec::new(),
+            collisions_map: IntPairSet::new(MAX_CELLS),
+        }
     }
-    return 1.0 / (mass as f64);
-}
 
-impl Universe {
-    fn calc_forces(&mut self) {
-        self.player.inertia.force = self
-            .player
-            .inertia
-            .force
-            .plus(self.gravity.cmul(self.player.inertia.mass as f64));
-
+    fn calc_forces(&mut self, gravity: V2) {
         for (_, cell) in &mut self.cells {
             if cell.inertia.mass > 0 {
-                cell.inertia.force = self.gravity.cmul(cell.inertia.mass as f64);
+                cell.inertia.force = gravity.cmul(cell.inertia.mass as f64);
             }
         }
     }
@@ -255,155 +326,18 @@ impl Universe {
         for (_, cell) in &mut self.cells {
             cell.inertia.force = V2::zero();
         }
-        self.player.inertia.force = V2::zero();
-        // self.player.self_force = V2::zero();
     }
 
-    fn get_next_player_inertia(&self) -> Inertia {
-        //log!("player pos: {:?}", self.player.inertia.pos);
-        let new_player_pos = self
-            .player
-            .inertia
-            .pos
-            .plus(self.player.inertia.velocity.cmul(self.dt));
-        //if new_player_pos.round() != self.player.inertia.pos.round() {
-        // position changed, check if colliding
-        for x in 0..self.player.w {
-            for y in 0..self.player.h {
-                let pos = V2 {
-                    x: new_player_pos.x + x as f64,
-                    y: new_player_pos.y + y as f64,
-                };
-                if !self.grid.is_in_bounds(pos.round()) {
-                    continue;
-                }
-                let player_part = Inertia {
-                    pos: pos,
-                    ..self.player.inertia
-                };
-                let (_, neighbors) = self.grid.get(pos.round());
-                for cell_idx in neighbors {
-                    let cell_inertia = &self.cells[cell_idx].inertia;
-
-                    if Self::is_collision(&player_part, cell_inertia) {
-                        return Inertia {
-                            velocity: V2::zero(),
-                            pos: self.player.inertia.pos.round().to_v2(),
-                            ..self.player.inertia
-                        };
-                    }
-                }
-            }
-        }
-        //}
-        return Inertia {
-            pos: new_player_pos,
-            ..self.player.inertia
-        };
-    }
-
-    fn update_pos(&mut self) {
-        self.player.inertia = self.get_next_player_inertia();
-
-        // some previously static cells may now need to be in moving_cells
-        self.moving_cells.clear();
-        for (_, cell) in &self.cells {
-            if !self.grid.is_in_bounds(cell.inertia.pos.round()) {
-                continue;
-            }
-            //} && (cell.inertia.velocity.len() > self.velocity_threshold())
-            if cell.inertia.mass > 0 {
-                self.moving_cells.push(cell.index);
-            }
-        }
-        // update grid and positions
-        for cell_index in &self.moving_cells {
-            let cell = self.cells.get(cell_index).unwrap();
-            let old_pos = cell.inertia.pos;
-            let new_pos = cell.inertia.pos.plus(cell.inertia.velocity.cmul(self.dt));
-
-            // update grid:
-            self.grid
-                .update_cell_pos(*cell_index, old_pos.round(), new_pos.round());
-            // update position:
-            self.cells.get_mut(cell_index).unwrap().inertia.pos = new_pos;
-        }
-    }
-
-    fn log_cells(&self) {
-        for (_, cell) in &self.cells {
-            if cell.inertia.mass == 0 {
-                continue;
-            }
-            log!("cell: {cell:?}");
-        }
-    }
-    fn clamp_velocity(v: V2) -> V2 {
-        let max = V2 { x: 1.0, y: 1.0 };
-        let min = V2 { x: -1.0, y: -1.0 };
-        return v.min(max).max(min);
-    }
-
-    fn update_vel(&mut self) {
-        self.player.inertia.velocity =// Self::clamp_velocity(
-            self.player.inertia.velocity.plus(
-                self.player
-                    .inertia
-                    .force
-                    .cdiv(self.player.inertia.mass as f64)
-                    .cmul(self.dt),
-            );
-        //);
-
-        //        log!("update_vel: player: {:?}", self.player.inertia);
-
+    fn update_velocity(&mut self, dt: f64) {
         for (_, cell) in &mut self.cells {
             if cell.inertia.mass > 0 {
-                cell.inertia.velocity = Self::clamp_velocity(
-                    cell.inertia.velocity.plus(
-                        cell.inertia
-                            .force
-                            .cdiv(cell.inertia.mass as f64)
-                            .cmul(self.dt),
-                    ),
+                cell.inertia.velocity = clamp_velocity(
+                    cell.inertia
+                        .velocity
+                        .plus(cell.inertia.force.cdiv(cell.inertia.mass as f64).cmul(dt)),
                 );
             }
         }
-    }
-
-    fn velocity_threshold(&self) -> f64 {
-        self.dt / 10.0
-    }
-
-    fn is_collision(inertia1: &Inertia, inertia2: &Inertia) -> bool {
-        // collision between infinite masses?!
-        if (inertia1.mass == 0) && (inertia2.mass == 0) {
-            return false;
-        }
-
-        let normal = inertia1.pos.minus(inertia2.pos);
-        let radius = 1.0; // they're actually boxes but ok
-        if normal.magnitude_sqr() > radius * radius {
-            return false;
-        }
-
-        let rel_velocity = inertia1.velocity.minus(inertia2.velocity);
-
-        // if the dot product is negative, the two objects are colliding,
-        let dot = rel_velocity.dot(normal);
-
-        //log!("checking collision: dot: {dot:?}\n1: {inertia1:?}\n2: {inertia2:?}");
-
-        if dot >= 0.0 {
-            // moving away from each other
-            return false;
-        }
-        if dot * dot < 0.00001 {
-            // negligible velocity (floating point error)
-            return false;
-        }
-
-        return true;
     }
 
     fn collect_collisions(&mut self) {
@@ -439,7 +373,7 @@ impl Universe {
                 let inertia1 = &cell1.inertia;
                 let inertia2 = &cell2.inertia;
 
-                if Self::is_collision(inertia1, inertia2) {
+                if is_collision(inertia1, inertia2) {
                     self.collisions_list.push((*cell1_idx, *cell2_idx));
                 }
 
@@ -451,7 +385,7 @@ impl Universe {
         }
     }
 
-    fn calc_collisions(&mut self) {
+    fn calc_collisions(&mut self, dt: f64) {
         self.collect_collisions();
         self.stats.collisions_count += self.collisions_list.len();
         for (cell1_idx, cell2_idx) in self.collisions_list.iter() {
@@ -460,8 +394,8 @@ impl Universe {
 
             // static cell is involved, make them both static
             if ((inertia1.mass == 0) || (inertia2.mass == 0))
-                && (inertia1.velocity.magnitude_sqr() < self.velocity_threshold())
-                && (inertia2.velocity.magnitude_sqr() < self.velocity_threshold())
+                && (inertia1.velocity.magnitude_sqr() < velocity_threshold(dt))
+                && (inertia2.velocity.magnitude_sqr() < velocity_threshold(dt))
             {
                 self.cells.get_mut(cell1_idx).unwrap().set_static();
                 self.cells.get_mut(cell2_idx).unwrap().set_static();
@@ -481,23 +415,30 @@ impl Universe {
         }
     }
 
-    pub fn tick(&mut self) {
-        self.stats.ticks += 1;
-        self.reset_cells();
-
-        for _ in 0..((1.0 / self.dt) as usize) {
-            //self.log_cells();
-
-            self.calc_forces();
-            self.update_vel();
-
-            self.calc_collisions();
-
-            self.update_pos();
-            self.zero_forces();
+    fn update_pos(&mut self, dt: f64) {
+        // some previously static cells may now need to be in moving_cells
+        self.moving_cells.clear();
+        for (_, cell) in &self.cells {
+            if !self.grid.is_in_bounds(cell.inertia.pos.round()) {
+                continue;
+            }
+            //} && (cell.inertia.velocity.len() > self.velocity_threshold())
+            if cell.inertia.mass > 0 {
+                self.moving_cells.push(cell.index);
+            }
         }
+        // update grid and positions
+        for cell_index in &self.moving_cells {
+            let cell = self.cells.get(cell_index).unwrap();
+            let old_pos = cell.inertia.pos;
+            let new_pos = cell.inertia.pos.plus(cell.inertia.velocity.cmul(dt));
 
-        //log!("{}", self.render());
+            // update grid:
+            self.grid
+                .update_cell_pos(*cell_index, old_pos.round(), new_pos.round());
+            // update position:
+            self.cells.get_mut(cell_index).unwrap().inertia.pos = new_pos;
+        }
     }
 
     pub fn add_cell(&mut self, cell: Cell) {
@@ -521,68 +462,6 @@ impl Universe {
         self.cells.insert(index, Cell { index, ..cell });
         self.grid.put(cell.inertia.pos.round(), index);
         self.moving_cells.push(index);
-    }
-
-    fn wall_cell(&self, x: f64, y: f64) -> Cell {
-        Cell {
-            index: CellIndex { index: 0 },
-            color: Color { r: 150, g: 0, b: 0 },
-            inertia: Inertia {
-                velocity: V2::zero(),
-                force: V2::zero(),
-                pos: V2 { x, y },
-                mass: 0,
-                elasticity: 1.0, // allow other mass to determine
-                collision_stats: 0,
-            },
-        }
-    }
-    pub fn new(width: usize, height: usize) -> Universe {
-        let mut uni = Universe {
-            cells: HashMap::new(),
-            moving_cells: Vec::new(),
-            grid: UniverseGrid {
-                grid: Grid::new(width as usize, height as usize),
-                width: width,
-                height: height,
-            },
-
-            gravity: V2 { x: 0.0, y: 0.1 },
-            dt: 0.01,
-            next_cell_index: 0,
-            stats: Stats::zero(),
-
-            collisions_list: Vec::new(),
-            collisions_map: IntPairSet::new(MAX_CELLS),
-
-            player: Player::new(10, 10),
-        };
-
-        for x in width / 4..(3 * width / 4) {
-            uni.add_cell(uni.wall_cell(x as f64, (height / 2) as f64));
-        }
-        for x in 0..width {
-            uni.add_cell(uni.wall_cell(x as f64, 0.0));
-            uni.add_cell(uni.wall_cell(x as f64, (height - 1) as f64));
-        }
-        for y in 0..height {
-            uni.add_cell(uni.wall_cell(0.0, y as f64));
-            uni.add_cell(uni.wall_cell((width - 1) as f64, y as f64));
-        }
-
-        uni
-    }
-
-    fn reset_cells(&mut self) {
-        for (_, cell) in &mut self.cells {
-            cell.inertia.collision_stats = 0;
-        }
-    }
-
-    pub fn stats(&mut self) -> Stats {
-        let res = self.stats;
-        self.stats = Stats::zero();
-        res
     }
 
     fn get_cells(&self, x: usize, y: usize, radius: usize) -> Vec<CellIndex> {
@@ -631,6 +510,112 @@ impl Universe {
             self.cells.remove(&cell_idx);
             log!("removed: {cell_idx:?}");
         }
+    }
+
+    fn reset_cell_stats(&mut self) {
+        for (_, cell) in &mut self.cells {
+            cell.inertia.collision_stats = 0;
+        }
+    }
+}
+
+pub struct Universe {
+    gravity: V2,
+    dt: f64,
+    pub cells: UniverseCells,
+
+    pub player: Player,
+}
+
+fn inverse_mass(mass: i32) -> f64 {
+    if mass == 0 {
+        return 0.0;
+    }
+    return 1.0 / (mass as f64);
+}
+
+impl Universe {
+    fn calc_forces(&mut self) {
+        self.cells.calc_forces(self.gravity);
+        self.player.calc_forces(self.gravity);
+    }
+
+    fn zero_forces(&mut self) {
+        self.player.inertia.force = V2::zero();
+        self.cells.zero_forces();
+        // self.player.self_force = V2::zero();
+    }
+
+    fn update_velocity(&mut self) {
+        self.cells.update_velocity(self.dt);
+        self.player.update_velocity(self.dt);
+    }
+
+    pub fn tick(&mut self) {
+        // self.stats.ticks += 1;
+        self.cells.reset_cell_stats();
+
+        for _ in 0..((1.0 / self.dt) as usize) {
+            //self.log_cells();
+
+            self.calc_forces();
+            self.update_velocity();
+
+            self.cells.calc_collisions(self.dt);
+
+            self.player.update_pos(&self.cells, self.dt);
+            self.cells.update_pos(self.dt);
+            self.zero_forces();
+        }
+
+        //log!("{}", self.render());
+    }
+
+    fn wall_cell(&self, x: f64, y: f64) -> Cell {
+        Cell {
+            index: CellIndex { index: 0 },
+            color: Color { r: 150, g: 0, b: 0 },
+            inertia: Inertia {
+                velocity: V2::zero(),
+                force: V2::zero(),
+                pos: V2 { x, y },
+                mass: 0,
+                elasticity: 1.0, // allow other mass to determine
+                collision_stats: 0,
+            },
+        }
+    }
+    pub fn new(width: usize, height: usize) -> Universe {
+        let mut uni = Universe {
+            cells: UniverseCells::new(width, height),
+            gravity: V2 { x: 0.0, y: 0.1 },
+            dt: 0.01,
+
+            player: Player::new(10, 10),
+        };
+
+        for x in width / 4..(3 * width / 4) {
+            uni.cells
+                .add_cell(uni.wall_cell(x as f64, (height / 2) as f64));
+        }
+        for x in 0..width {
+            uni.cells.add_cell(uni.wall_cell(x as f64, 0.0));
+            uni.cells
+                .add_cell(uni.wall_cell(x as f64, (height - 1) as f64));
+        }
+        for y in 0..height {
+            uni.cells.add_cell(uni.wall_cell(0.0, y as f64));
+            uni.cells
+                .add_cell(uni.wall_cell((width - 1) as f64, y as f64));
+        }
+
+        uni
+    }
+
+    pub fn stats(&mut self) -> Stats {
+        let res = self.cells.stats;
+        self.cells.stats = Stats::zero();
+        res
     }
 }
 
@@ -682,4 +667,35 @@ fn collide(inertia1: &Inertia, inertia2: &Inertia) -> (Inertia, Inertia) {
             ..*inertia2
         },
     )
+}
+
+fn is_collision(inertia1: &Inertia, inertia2: &Inertia) -> bool {
+    // collision between infinite masses?!
+    if (inertia1.mass == 0) && (inertia2.mass == 0) {
+        return false;
+    }
+
+    let normal = inertia1.pos.minus(inertia2.pos);
+    let radius = 1.0; // they're actually boxes but ok
+    if normal.magnitude_sqr() > radius * radius {
+        return false;
+    }
+
+    let rel_velocity = inertia1.velocity.minus(inertia2.velocity);
+
+    // if the dot product is negative, the two objects are colliding,
+    let dot = rel_velocity.dot(normal);
+
+    //log!("checking collision: dot: {dot:?}\n1: {inertia1:?}\n2: {inertia2:?}");
+
+    if dot >= 0.0 {
+        // moving away from each other
+        return false;
+    }
+    if dot * dot < 0.00001 {
+        // negligible velocity (floating point error)
+        return false;
+    }
+
+    return true;
 }

@@ -53,11 +53,11 @@ impl Game {
 
         for x in 0..self.width {
             for y in 0..self.height {
-                let neighbors_count = self.universe.grid.get(V2i::new(x as i32, y as i32)).0;
+                let neighbors_count = self.universe.cells.grid.get(V2i::new(x as i32, y as i32)).0;
                 self.pixels[(y * self.width + x) as usize] -= (0x20 * neighbors_count) as u32;
             }
         }
-        for (_, cell) in &self.universe.cells {
+        for (_, cell) in &self.universe.cells.cells {
             let pos = cell.inertia.pos.round();
 
             // out of the screen bounds
@@ -81,7 +81,6 @@ impl Game {
     }
 
     pub fn key(&mut self, key: char) {
-        self.universe.player.next_frame();
         match key {
             'a' => self.universe.player.move_left(),
             'd' => self.universe.player.move_right(),
@@ -90,7 +89,7 @@ impl Game {
             ' ' => {
                 let pos: V2i = self.universe.player.inertia.pos.round();
                 for x in 0..self.universe.player.w {
-                    self.universe.remove_cells(
+                    self.universe.cells.remove_cells(
                         (pos.x + x as i32) as usize,
                         (pos.y) as usize,
                         self.universe.player.h - 1,
@@ -106,11 +105,11 @@ impl Game {
             return;
         }
         // unstick some cells
-        self.universe.unstick_cells(x as usize, y as usize, 3);
+        self.universe.cells.unstick_cells(x as usize, y as usize, 3);
 
         // add a new cell
         let r = (x % 17) as f64 / 17.0 - 1.0;
-        self.universe.add_cell(Cell {
+        self.universe.cells.add_cell(Cell {
             index: CellIndex { index: 0 },
             color: Color {
                 r: 0,
