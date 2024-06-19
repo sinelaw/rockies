@@ -1,4 +1,3 @@
-use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
 
 use crate::assets;
@@ -6,6 +5,7 @@ use crate::color::Color;
 use crate::grid::Grid;
 use crate::inertia::Inertia;
 use crate::v2::{V2i, V2};
+use fnv::{FnvHashMap, FnvHashSet};
 use wasm_bindgen::prelude::*;
 
 extern crate web_sys;
@@ -111,7 +111,7 @@ impl Player {
                 collision_stats: 0,
             },
 
-            direction: 0,
+            direction: 1,
             frame: 0,
         }
     }
@@ -291,7 +291,7 @@ fn velocity_threshold(dt: f64) -> f64 {
 }
 
 pub struct UniverseCells {
-    pub cells: HashMap<CellIndex, Cell>,
+    pub cells: FnvHashMap<CellIndex, Cell>,
     moving_cells: Vec<CellIndex>,
     pub grid: UniverseGrid,
 
@@ -300,14 +300,14 @@ pub struct UniverseCells {
     stats: Stats,
     // transient data:
     collisions_list: Vec<(CellIndex, CellIndex)>,
-    collisions_map: HashSet<(CellIndex, CellIndex)>,
+    collisions_map: FnvHashSet<(CellIndex, CellIndex)>,
 }
 
 impl UniverseCells {
     fn new(width: usize, height: usize) -> UniverseCells {
         UniverseCells {
-            cells: HashMap::new(),
-            moving_cells: Vec::new(),
+            cells: FnvHashMap::default(),
+            moving_cells: Vec::default(),
             grid: UniverseGrid {
                 grid: Grid::new(width as usize, height as usize),
                 width: width,
@@ -318,12 +318,13 @@ impl UniverseCells {
             stats: Stats::zero(),
 
             collisions_list: Vec::new(),
-            collisions_map: HashSet::new(),
+            collisions_map: FnvHashSet::default(),
         }
     }
 
     fn calc_forces(&mut self, gravity: V2) {
-        for (_, cell) in &mut self.cells {
+        for cell_idx in self.moving_cells.iter() {
+            let cell = &mut self.cells.get_mut(&cell_idx).unwrap();
             if cell.inertia.mass > 0 {
                 cell.inertia.force = gravity.cmul(cell.inertia.mass as f64);
             }
@@ -331,13 +332,15 @@ impl UniverseCells {
     }
 
     fn zero_forces(&mut self) {
-        for (_, cell) in &mut self.cells {
+        for cell_idx in self.moving_cells.iter() {
+            let cell = &mut self.cells.get_mut(&cell_idx).unwrap();
             cell.inertia.force = V2::zero();
         }
     }
 
     fn update_velocity(&mut self, dt: f64) {
-        for (_, cell) in &mut self.cells {
+        for cell_idx in self.moving_cells.iter() {
+            let cell = &mut self.cells.get_mut(&cell_idx).unwrap();
             if cell.inertia.mass > 0 {
                 cell.inertia.velocity = clamp_velocity(
                     cell.inertia
@@ -396,13 +399,19 @@ impl UniverseCells {
             let inertia2 = &self.cells[cell2_idx].inertia;
             let inertia1 = &self.cells[cell1_idx].inertia;
 
+            let mass1 = inertia1.mass;
+            let mass2 = inertia2.mass;
             // static cell is involved, make them both static
             if ((inertia1.mass == 0) || (inertia2.mass == 0))
                 && (inertia1.velocity.magnitude_sqr() < velocity_threshold(dt))
                 && (inertia2.velocity.magnitude_sqr() < velocity_threshold(dt))
             {
-                self.cells.get_mut(cell1_idx).unwrap().set_static();
-                self.cells.get_mut(cell2_idx).unwrap().set_static();
+                if mass1 > 0 {
+                    self.cells.get_mut(cell1_idx).unwrap().set_static();
+                }
+                if mass2 > 0 {
+                    self.cells.get_mut(cell2_idx).unwrap().set_static();
+                }
 
                 continue;
             }
@@ -431,6 +440,7 @@ impl UniverseCells {
                 self.moving_cells.push(cell.index);
             }
         }
+
         // update grid and positions
         for cell_index in &self.moving_cells {
             let cell = self.cells.get(cell_index).unwrap();
@@ -501,7 +511,7 @@ impl UniverseCells {
     }
 
     pub fn remove_cells(&mut self, x: usize, y: usize, radius: usize) {
-        let cells_to_remove: HashSet<CellIndex> = HashSet::from_iter(
+        let cells_to_remove: FnvHashSet<CellIndex> = FnvHashSet::from_iter(
             self.get_cells(x, y, radius)
                 .iter()
                 // don't remove cells that may be interacting (in moving_cells)

@@ -8,10 +8,13 @@ fn main() -> () {
         }
     } */
 
-    for _ in 0..5000 {
-        game.tick();
-        game.stats();
+    loop {
+        for _ in 0..10 {
+            game.tick();
+            game.stats();
+            game.key('w');
+            game.key(' ');
+        }
         println!("{}\n\n", game.text_render());
-        std::thread::sleep(std::time::Duration::from_millis(100));
     }
 }
