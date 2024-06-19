@@ -55,6 +55,12 @@ pub struct Stats {
 
 #[wasm_bindgen]
 impl Stats {
+    pub fn get_and_reset(&mut self) -> Stats {
+        let res = self.clone();
+        *self = Stats::zero();
+        res
+    }
+
     pub fn zero() -> Stats {
         Stats {
             ticks: 0,
@@ -527,7 +533,6 @@ impl Universe {
     fn zero_forces(&mut self) {
         self.player.inertia.force = V2::zero();
         self.cells.zero_forces();
-        // self.player.self_force = V2::zero();
     }
 
     fn update_velocity(&mut self) {
@@ -536,7 +541,7 @@ impl Universe {
     }
 
     pub fn tick(&mut self) {
-        // self.stats.ticks += 1;
+        self.cells.stats.ticks += 1;
         self.cells.reset_cell_stats();
 
         for _ in 0..((1.0 / self.dt) as usize) {
@@ -553,6 +558,10 @@ impl Universe {
         }
 
         //log!("{}", self.render());
+    }
+
+    pub fn stats(&mut self) -> Stats {
+        self.cells.stats.get_and_reset()
     }
 
     fn wall_cell(&self, x: f64, y: f64) -> Cell {
@@ -594,11 +603,5 @@ impl Universe {
         }
 
         uni
-    }
-
-    pub fn stats(&mut self) -> Stats {
-        let res = self.cells.stats;
-        self.cells.stats = Stats::zero();
-        res
     }
 }
