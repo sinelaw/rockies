@@ -5,7 +5,6 @@ use crate::assets;
 use crate::color::Color;
 use crate::grid::Grid;
 use crate::inertia::Inertia;
-use crate::int_pair_set::IntPairSet;
 use crate::v2::{V2i, V2};
 use wasm_bindgen::prelude::*;
 
@@ -301,7 +300,7 @@ pub struct UniverseCells {
     stats: Stats,
     // transient data:
     collisions_list: Vec<(CellIndex, CellIndex)>,
-    collisions_map: IntPairSet,
+    collisions_map: HashSet<(CellIndex, CellIndex)>,
 }
 
 impl UniverseCells {
@@ -319,7 +318,7 @@ impl UniverseCells {
             stats: Stats::zero(),
 
             collisions_list: Vec::new(),
-            collisions_map: IntPairSet::new(MAX_CELLS),
+            collisions_map: HashSet::new(),
         }
     }
 
@@ -368,13 +367,9 @@ impl UniverseCells {
                     continue;
                 }
 
-                if self
-                    .collisions_map
-                    .contains(cell1_idx.index, cell2_idx.index)
-                {
+                if !self.collisions_map.insert((*cell1_idx, *cell2_idx)) {
                     continue;
                 }
-                self.collisions_map.put(cell1_idx.index, cell2_idx.index);
 
                 self.stats.collision_pairs_tested += 1;
 

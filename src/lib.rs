@@ -4,7 +4,6 @@ mod inertia;
 mod assets;
 mod color;
 mod grid;
-mod int_pair_set;
 mod universe;
 mod utils;
 mod v2;
