@@ -143,6 +143,18 @@ impl Player {
         self.next_frame();
     }
 
+    pub fn mouth_pos(&self) -> V2 {
+        V2::new(
+            self.inertia.pos.x
+                + (if self.direction >= 0 {
+                    self.w as f64
+                } else {
+                    -1.0
+                }),
+            self.inertia.pos.y + (self.h / 2 - 1) as f64,
+        )
+    }
+
     pub fn render(&self, pixels: &mut Vec<u32>, buf_width: usize, buf_height: usize) -> () {
         let hammy_0: (usize, usize, &[Color]) = assets::HAMMY_0;
         let hammy_1: (usize, usize, &[Color]) = assets::HAMMY_1;

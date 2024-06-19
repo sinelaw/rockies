@@ -90,6 +90,25 @@ impl Game {
             's' => self.universe.player.move_down(),
             ' ' => {
                 let pos: V2i = self.universe.player.inertia.pos.round();
+                self.universe.cells.add_cell(Cell {
+                    index: CellIndex { index: 0 },
+                    color: Color {
+                        r: 0,
+                        g: 150,
+                        b: ((155 * pos.x) % 255) as u8,
+                    },
+                    inertia: Inertia {
+                        velocity: V2::new(1.0 * (self.universe.player.direction as f64), -1.0),
+                        force: V2::zero(),
+                        pos: self.universe.player.mouth_pos(),
+                        mass: 1,
+                        elasticity: 0.5,
+                        collision_stats: 0,
+                    },
+                });
+            }
+            'k' => {
+                let pos: V2i = self.universe.player.inertia.pos.round();
                 for x in 0..self.universe.player.w {
                     self.universe.cells.remove_cells(
                         (pos.x + x as i32) as usize,
