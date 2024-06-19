@@ -242,15 +242,26 @@ impl Player {
     }
 }
 
+// Keeps track of the visible part of the world
 pub struct UniverseGrid {
     pub width: usize,
     pub height: usize,
+
+    offset: V2i,
     grid: Grid<CellIndex>,
 }
 
 impl UniverseGrid {
     fn is_in_bounds(&self, pos: V2i) -> bool {
-        (pos.x) >= 0 && (pos.y) >= 0 && (pos.x) < self.width as i32 && (pos.y) < self.height as i32
+        let relative_pos = pos.minus(self.offset);
+        relative_pos.x >= 0
+            && relative_pos.y >= 0
+            && relative_pos.x < self.width as i32
+            && relative_pos.y < self.height as i32
+    }
+
+    fn set_offset(&mut self, offset: V2i) {
+        self.offset = offset;
     }
 
     fn update_cell_pos(&mut self, cell_idx: CellIndex, old_pos: V2i, new_pos: V2i) {
@@ -312,6 +323,7 @@ impl UniverseCells {
                 grid: Grid::new(width as usize, height as usize),
                 width: width,
                 height: height,
+                offset: V2i::zero(),
             },
 
             next_cell_index: 0,
@@ -320,6 +332,49 @@ impl UniverseCells {
             collisions_list: Vec::new(),
             collisions_map: FnvHashSet::default(),
         }
+    }
+
+    fn drop_range(&mut self, start: V2i, end_exclusive: V2i) {
+        for x in start.x..end_exclusive.x {
+            for y in start.y..end_exclusive.y {
+                let pos = V2i::new(x as i32, y as i32);
+                if !self.grid.is_in_bounds(pos) {
+                    continue;
+                }
+                let (neighbors_count, neighbors) = self.grid.get(pos);
+                for cell_idx in neighbors.clone() {
+                    let cell = &self.cells.get(&cell_idx).unwrap();
+                    let cell_pos = cell.inertia.pos.round();
+                    if cell_pos.x >= start.x
+                        && cell_pos.y >= start.y
+                        && cell_pos.x < end_exclusive.x
+                        && cell_pos.y < end_exclusive.y
+                    {
+                        self.grid.remove(cell_pos, cell_idx);
+                    }
+                }
+            }
+        }
+    }
+
+    fn set_offset(&mut self, new_offset: V2i) {
+        // drop the parts of the grid that are no longer visible
+        let prev_offset = self.grid.offset;
+        let offset_diff = new_offset.minus(prev_offset);
+
+        let valid_min = offset_diff;
+        let valid_max = V2i::new(
+            self.grid.width as i32 + offset_diff.x,
+            self.grid.height as i32 + offset_diff.y,
+        );
+
+        let end = V2i::new(self.grid.width as i32, self.grid.height as i32);
+
+        self.drop_range(V2i::zero(), V2i::new(valid_min.x, end.y));
+        self.drop_range(V2i::zero(), V2i::new(end.x, valid_min.y));
+        self.drop_range(V2i::new(valid_max.x, 0), end);
+        self.drop_range(V2i::new(0, valid_max.y), end);
+        self.grid.set_offset(new_offset);
     }
 
     fn calc_forces(&mut self, gravity: V2) {
