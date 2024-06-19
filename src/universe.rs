@@ -4,6 +4,7 @@ use std::iter::FromIterator;
 use crate::assets;
 use crate::color::Color;
 use crate::grid::Grid;
+use crate::inertia::Inertia;
 use crate::int_pair_set::IntPairSet;
 use crate::v2::{V2i, V2};
 use wasm_bindgen::prelude::*;
@@ -18,16 +19,6 @@ macro_rules! log {
         // web_sys::console::log_1(&format!( $( $t )* ).into())
         // println!( $( $t )* );
     };
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Inertia {
-    pub velocity: V2,
-    pub force: V2,
-    pub pos: V2,
-    pub mass: i32,
-    pub elasticity: f64, // 0..1
-    pub collision_stats: usize,
 }
 
 #[derive(Default, Hash, Eq, Clone, Copy, Debug, PartialEq)]
@@ -202,7 +193,7 @@ impl Player {
                 for cell_idx in neighbors {
                     let cell_inertia = &cells.cells[cell_idx].inertia;
 
-                    if is_collision(&player_part, cell_inertia) {
+                    if Inertia::is_collision(&player_part, cell_inertia) {
                         return Inertia {
                             velocity: V2::zero(),
                             pos: self.inertia.pos.round().to_v2(),
@@ -373,7 +364,7 @@ impl UniverseCells {
                 let inertia1 = &cell1.inertia;
                 let inertia2 = &cell2.inertia;
 
-                if is_collision(inertia1, inertia2) {
+                if Inertia::is_collision(inertia1, inertia2) {
                     self.collisions_list.push((*cell1_idx, *cell2_idx));
                 }
 
@@ -403,7 +394,7 @@ impl UniverseCells {
                 continue;
             }
 
-            let (new_inertia1, new_inertia2) = collide(inertia1, inertia2);
+            let (new_inertia1, new_inertia2) = Inertia::collide(inertia1, inertia2);
 
             self.grid
                 .update_cell_pos(*cell1_idx, inertia1.pos.round(), new_inertia1.pos.round());
@@ -527,13 +518,6 @@ pub struct Universe {
     pub player: Player,
 }
 
-fn inverse_mass(mass: i32) -> f64 {
-    if mass == 0 {
-        return 0.0;
-    }
-    return 1.0 / (mass as f64);
-}
-
 impl Universe {
     fn calc_forces(&mut self) {
         self.cells.calc_forces(self.gravity);
@@ -617,85 +601,4 @@ impl Universe {
         self.cells.stats = Stats::zero();
         res
     }
-}
-
-fn collide(inertia1: &Inertia, inertia2: &Inertia) -> (Inertia, Inertia) {
-    let rel_velocity = inertia1.velocity.minus(inertia2.velocity);
-    let normal = inertia1.pos.minus(inertia2.pos);
-    // coefficient of restitution
-    let e = inertia1.elasticity.min(inertia2.elasticity);
-
-    // let collision_vel = rel_velocity.dot(normal);
-    let collision_vel: f64 = rel_velocity.dot(normal) as f64 * -(1.0 + e);
-
-    // for simplicity the rest here treats them as circles, not boxes:
-    let distance = normal.magnitude();
-
-    let normal_direction = if distance == 0.0 {
-        // the two are perfectly aligned on top of each other
-        V2 { x: 1.0, y: 0.0 }
-    } else {
-        normal.cdiv(distance)
-    };
-
-    let im1 = inverse_mass(inertia1.mass);
-    let im2 = inverse_mass(inertia2.mass);
-
-    let penetration = 1.0 - distance; // 1.0 = "radius"
-    let slop = 0.02;
-    let pos_correct = normal_direction
-        .cmul((penetration - slop) / (im1 + im2))
-        .cmul(0.4);
-
-    let impulse = collision_vel / (im1 + im2);
-
-    /*  log!("rel_velocity: {rel_velocity:?}");
-    log!("norm: {normal:?}");
-    log!("collision_vel: {collision_vel:?}"); */
-
-    (
-        Inertia {
-            pos: inertia1.pos.plus(pos_correct.cmul(im1)),
-            velocity: inertia1.velocity.plus(normal_direction.cmul(impulse * im1)),
-            ..*inertia1
-        },
-        Inertia {
-            pos: inertia2.pos.minus(pos_correct.cmul(im2)),
-            velocity: inertia2
-                .velocity
-                .minus(normal_direction.cmul(impulse * im2)),
-            ..*inertia2
-        },
-    )
-}
-
-fn is_collision(inertia1: &Inertia, inertia2: &Inertia) -> bool {
-    // collision between infinite masses?!
-    if (inertia1.mass == 0) && (inertia2.mass == 0) {
-        return false;
-    }
-
-    let normal = inertia1.pos.minus(inertia2.pos);
-    let radius = 1.0; // they're actually boxes but ok
-    if normal.magnitude_sqr() > radius * radius {
-        return false;
-    }
-
-    let rel_velocity = inertia1.velocity.minus(inertia2.velocity);
-
-    // if the dot product is negative, the two objects are colliding,
-    let dot = rel_velocity.dot(normal);
-
-    //log!("checking collision: dot: {dot:?}\n1: {inertia1:?}\n2: {inertia2:?}");
-
-    if dot >= 0.0 {
-        // moving away from each other
-        return false;
-    }
-    if dot * dot < 0.00001 {
-        // negligible velocity (floating point error)
-        return false;
-    }
-
-    return true;
 }

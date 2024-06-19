@@ -1,4 +1,5 @@
 use std::fmt;
+mod inertia;
 
 mod assets;
 mod color;
@@ -9,7 +10,8 @@ mod utils;
 mod v2;
 use color::Color;
 
-use universe::{Cell, CellIndex, Inertia, Stats, Universe};
+use inertia::Inertia;
+use universe::{Cell, CellIndex, Stats, Universe};
 
 use v2::{V2i, V2};
 use wasm_bindgen::prelude::*;
