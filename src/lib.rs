@@ -54,8 +54,9 @@ impl Game {
 
         for x in 0..self.width {
             for y in 0..self.height {
-                let neighbors_count = self.universe.cells.grid.get(V2i::new(x as i32, y as i32)).0;
-                self.pixels[(y * self.width + x) as usize] -= (0x20 * neighbors_count) as u32;
+                let get_res = self.universe.cells.get(V2i::new(x as i32, y as i32));
+                self.pixels[(y * self.width + x) as usize] -=
+                    (0x20 * get_res.neighbors.len()) as u32;
             }
         }
         for (_, cell) in &self.universe.cells.cells {

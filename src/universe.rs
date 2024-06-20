@@ -206,8 +206,8 @@ impl Player {
                     pos: pos,
                     ..self.inertia
                 };
-                let (_, neighbors) = cells.grid.get(pos.round());
-                for cell_idx in neighbors {
+                let get_res = cells.grid.get(pos.round());
+                for cell_idx in get_res.neighbors {
                     let cell_inertia = &cells.cells[cell_idx].inertia;
 
                     if Inertia::is_collision(&player_part, cell_inertia) {
@@ -285,7 +285,7 @@ impl UniverseGrid {
         self.grid.put((pos.x) as usize, (pos.y) as usize, cell_idx)
     }
 
-    pub fn get(&self, pos: V2i) -> (usize, &Vec<CellIndex>) {
+    pub fn get(&self, pos: V2i) -> crate::grid::GetResult<CellIndex> {
         assert!(self.is_in_bounds(pos));
         self.grid.get(pos.x as usize, pos.y as usize)
     }
@@ -304,7 +304,7 @@ fn velocity_threshold(dt: f64) -> f64 {
 pub struct UniverseCells {
     pub cells: FnvHashMap<CellIndex, Cell>,
     moving_cells: Vec<CellIndex>,
-    pub grid: UniverseGrid,
+    grid: UniverseGrid,
 
     next_cell_index: usize,
 
@@ -334,47 +334,8 @@ impl UniverseCells {
         }
     }
 
-    fn drop_range(&mut self, start: V2i, end_exclusive: V2i) {
-        for x in start.x..end_exclusive.x {
-            for y in start.y..end_exclusive.y {
-                let pos = V2i::new(x as i32, y as i32);
-                if !self.grid.is_in_bounds(pos) {
-                    continue;
-                }
-                let (neighbors_count, neighbors) = self.grid.get(pos);
-                for cell_idx in neighbors.clone() {
-                    let cell = &self.cells.get(&cell_idx).unwrap();
-                    let cell_pos = cell.inertia.pos.round();
-                    if cell_pos.x >= start.x
-                        && cell_pos.y >= start.y
-                        && cell_pos.x < end_exclusive.x
-                        && cell_pos.y < end_exclusive.y
-                    {
-                        self.grid.remove(cell_pos, cell_idx);
-                    }
-                }
-            }
-        }
-    }
-
-    fn set_offset(&mut self, new_offset: V2i) {
-        // drop the parts of the grid that are no longer visible
-        let prev_offset = self.grid.offset;
-        let offset_diff = new_offset.minus(prev_offset);
-
-        let valid_min = offset_diff;
-        let valid_max = V2i::new(
-            self.grid.width as i32 + offset_diff.x,
-            self.grid.height as i32 + offset_diff.y,
-        );
-
-        let end = V2i::new(self.grid.width as i32, self.grid.height as i32);
-
-        self.drop_range(V2i::zero(), V2i::new(valid_min.x, end.y));
-        self.drop_range(V2i::zero(), V2i::new(end.x, valid_min.y));
-        self.drop_range(V2i::new(valid_max.x, 0), end);
-        self.drop_range(V2i::new(0, valid_max.y), end);
-        self.grid.set_offset(new_offset);
+    pub fn get(&self, pos: V2i) -> crate::grid::GetResult<CellIndex> {
+        self.grid.get(pos)
     }
 
     fn calc_forces(&mut self, gravity: V2) {
@@ -416,11 +377,11 @@ impl UniverseCells {
             if !self.grid.is_in_bounds(cell1.inertia.pos.round()) {
                 continue;
             }
-            let (neighbors_count, neighbors) = self
+            let get_res = self
                 .grid
                 .grid
                 .get(cell1.inertia.pos.x as usize, cell1.inertia.pos.y as usize);
-            for cell2_idx in &neighbors[0..neighbors_count] {
+            for cell2_idx in get_res.neighbors {
                 if *cell1_idx == *cell2_idx {
                     continue;
                 }
@@ -515,11 +476,11 @@ impl UniverseCells {
             return;
         }
         // don't allow adding too many cells in the same region
-        let (neighbors, _) = self
+        let get_res = self
             .grid
             .grid
             .get(cell.inertia.pos.x as usize, cell.inertia.pos.y as usize);
-        if neighbors > 6 {
+        if get_res.neighbors.len() > 6 {
             return;
         }
 
@@ -542,8 +503,8 @@ impl UniverseCells {
                 if !self.grid.is_in_bounds(ppos) {
                     continue;
                 }
-                let (neighbors_count, neighbors) = self.grid.get(ppos);
-                res.extend_from_slice(&neighbors[0..neighbors_count]);
+                let get_res = self.grid.get(ppos);
+                res.extend_from_slice(get_res.neighbors);
             }
         }
         res

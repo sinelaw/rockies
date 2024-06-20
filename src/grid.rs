@@ -1,42 +1,73 @@
 use std::hash::Hash;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct GridCell<T> {
-    version: usize,
-    items: Vec<T>, // [T; 16],
+pub struct GetResult<'a, T> {
+    pub value: &'a Option<T>,
+    pub neighbors: &'a [T],
 }
 
-impl<T: Default + PartialEq> GridCell<T> {
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct GridCell<T> {
+    version: usize,
+    value: Option<T>,
+    neighbors: Vec<T>, // [T; 16],
+}
+
+impl<T: Clone + Default + PartialEq> GridCell<T> {
     pub fn new() -> GridCell<T> {
         GridCell {
             version: 0,
-            items: Vec::with_capacity(16), //[T::default(); 16],
+            value: Option::None,
+            neighbors: Vec::with_capacity(16), //[T::default(); 16],
         }
     }
 
-    pub fn get(&self, version: usize) -> (usize, &Vec<T>) {
-        let count = if version != self.version {
-            0
+    pub fn get(&self, version: usize) -> GetResult<T> {
+        if version == self.version {
+            GetResult {
+                value: &self.value,
+                neighbors: &self.neighbors,
+            }
         } else {
-            self.items.len()
-        };
-        (count, &self.items)
+            GetResult {
+                value: &Option::None,
+                neighbors: &self.neighbors[0..0],
+            }
+        }
     }
 
-    pub fn push(&mut self, version: usize, item: T) {
+    fn ensure_version(&mut self, version: usize) {
         if version != self.version {
             self.version = version;
-            self.items.clear();
+            self.value = Option::None;
+            self.neighbors.clear();
         }
-        self.items.push(item);
     }
 
-    pub fn pop(&mut self, version: usize, item: T) {
+    pub fn set_value(&mut self, version: usize, value: T) {
+        self.ensure_version(version);
+        self.value = Option::Some(value);
+    }
+
+    pub fn remove_value(&mut self, version: usize, value: T) {
         if version != self.version {
             return;
         }
 
-        self.items.retain(|x| *x != item);
+        self.value = Option::None;
+    }
+
+    pub fn add_neighbor(&mut self, version: usize, neighbor: T) {
+        self.ensure_version(version);
+        self.neighbors.push(neighbor);
+    }
+
+    pub fn remove_neighbor(&mut self, version: usize, neighbor: T) {
+        if version != self.version {
+            return;
+        }
+
+        self.neighbors.retain(|x| *x != neighbor);
     }
 }
 
@@ -73,10 +104,11 @@ impl<T: Default + Copy + Hash + Clone + Eq> Grid<T> {
     pub fn put(&mut self, x: usize, y: usize, value: T) {
         assert!(x < self.width);
         assert!(y < self.height);
+        self.grid[grid_index(x + 1, y + 1, self.height)].set_value(self.version, value);
         for px in 0..3 {
             for py in 0..3 {
                 self.grid[grid_index(x + px, y + py, self.height)]
-                    .push(self.version, value.clone());
+                    .add_neighbor(self.version, value.clone());
             }
         }
     }
@@ -85,7 +117,7 @@ impl<T: Default + Copy + Hash + Clone + Eq> Grid<T> {
         self.version += 1;
     } */
 
-    pub fn get(&self, x: usize, y: usize) -> (usize, &Vec<T>) {
+    pub fn get(&self, x: usize, y: usize) -> GetResult<T> {
         assert!(x < self.width);
         assert!(y < self.height);
         self.grid[grid_index(x + 1, y + 1, self.height)].get(self.version)
@@ -94,9 +126,11 @@ impl<T: Default + Copy + Hash + Clone + Eq> Grid<T> {
     pub fn remove(&mut self, x: usize, y: usize, value: T) {
         assert!(x < self.width);
         assert!(y < self.height);
+        self.grid[grid_index(x + 1, y + 1, self.height)].remove_value(self.version, value);
         for px in 0..3 {
             for py in 0..3 {
-                self.grid[grid_index(x + px, y + py, self.height)].pop(self.version, value.clone());
+                self.grid[grid_index(x + px, y + py, self.height)]
+                    .remove_neighbor(self.version, value.clone());
             }
         }
     }
@@ -116,9 +150,15 @@ mod tests {
     fn test_grid_one() {
         let mut grid: Grid<char> = Grid::new(1, 1);
         grid.put(0, 0, 'a');
-        let (count, items) = grid.get(0, 0);
-        assert_eq!(count, 1);
-        assert_eq!(items[0..count], ['a'][..]);
+        let res = grid.get(0, 0);
+        assert_eq!(res.neighbors.len(), 1);
+        assert_eq!(res.value, &Some('a'));
+        assert_eq!(res.neighbors, &['a']);
+
+        grid.remove(0, 0, 'a');
+        let res = grid.get(0, 0);
+        assert_eq!(res.neighbors.len(), 0);
+        assert_eq!(res.value, &None);
     }
 
     #[test]
@@ -127,10 +167,17 @@ mod tests {
         grid.put(0, 0, 'a');
         grid.put(1, 0, 'b');
 
-        let (count, items) = grid.get(0, 0);
+        let res = grid.get(0, 0);
 
-        assert_eq!(count, 2);
-        assert_eq!(items[0..count], ['a', 'b'][..]);
+        assert_eq!(res.neighbors.len(), 2);
+        assert_eq!(res.value, &Some('a'));
+        assert_eq!(res.neighbors, &['a', 'b']);
+
+        grid.remove(0, 0, 'a');
+        let res = grid.get(0, 0);
+        assert_eq!(res.neighbors.len(), 1);
+        assert_eq!(res.value, &None);
+        assert_eq!(res.neighbors, &['b']);
     }
 
     #[test]
@@ -140,14 +187,16 @@ mod tests {
         grid.put(4, 0, 'b');
 
         {
-            let (count, items) = grid.get(0, 0);
-            assert_eq!(count, 1);
-            assert_eq!(items[0..count], ['a'][..]);
+            let res = grid.get(0, 0);
+            assert_eq!(res.neighbors.len(), 1);
+            assert_eq!(res.value, &Some('a'));
+            assert_eq!(res.neighbors, &['a']);
         }
         {
-            let (count, items) = grid.get(4, 0);
-            assert_eq!(count, 1);
-            assert_eq!(items[0..count], ['b'][..]);
+            let res = grid.get(4, 0);
+            assert_eq!(res.neighbors.len(), 1);
+            assert_eq!(res.value, &Some('b'));
+            assert_eq!(res.neighbors, &['b']);
         }
     }
     /*
