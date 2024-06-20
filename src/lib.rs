@@ -104,7 +104,7 @@ impl Game {
             's' => self.universe.player.move_down(),
             ' ' => {
                 self.universe.player.next_frame();
-                let pos: V2i = self.universe.player.inertia.pos.round();
+
                 self.universe.cells.add_cell(Cell {
                     index: CellIndex { index: 0 },
                     color: Color::from_hsv(
@@ -125,11 +125,9 @@ impl Game {
             'k' => {
                 let pos: V2i = self.universe.player.inertia.pos.round();
                 for x in 0..self.universe.player.w {
-                    self.universe.cells.remove_cells(
-                        (pos.x + x as i32) as usize,
-                        (pos.y) as usize,
-                        self.universe.player.h - 1,
-                    );
+                    self.universe
+                        .cells
+                        .remove_cells(pos.plus(V2i::new(x as i32, 0)), self.universe.player.h - 1);
                 }
             }
             _ => (),
@@ -140,8 +138,19 @@ impl Game {
         if !self.is_in_bounds(x, y) {
             return;
         }
+        let w = self.width as i32;
+        let h = self.height as i32;
+        let render_offset = V2i::new(w / 2, h / 2);
+        let base_pos = self
+            .universe
+            .player
+            .inertia
+            .pos
+            .round()
+            .minus(render_offset);
+        let pos = base_pos.plus(V2i::new(x, y));
         // unstick some cells
-        self.universe.cells.unstick_cells(x as usize, y as usize, 3);
+        self.universe.cells.unstick_cells(pos, 3);
 
         // add a new cell
         let r = (x % 17) as f64 / 17.0 - 1.0;
@@ -155,10 +164,7 @@ impl Game {
             inertia: Inertia {
                 velocity: V2::zero(),
                 force: V2::zero(),
-                pos: V2 {
-                    x: x as f64 + r,
-                    y: y as f64 + r,
-                },
+                pos: pos.to_v2(),
                 mass: 1,
                 elasticity: 0.5,
                 collision_stats: 0,

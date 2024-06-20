@@ -512,12 +512,12 @@ impl UniverseCells {
         self.moving_cells.push(index);
     }
 
-    fn get_cells(&mut self, x: usize, y: usize, radius: usize) -> Vec<CellIndex> {
+    fn get_cells(&mut self, center: V2i, radius: usize) -> Vec<CellIndex> {
         let mut res = Vec::new();
         let r = radius as i32;
         for i in -r..r {
             for j in -r..r {
-                let ppos = V2i::new(x as i32 + i, y as i32 + j);
+                let ppos = center.plus(V2i::new(i, j));
                 let grid_index = self.grids.pos_to_index(ppos);
                 self.ensure_grid(grid_index);
                 let get_res = self.grids.get(grid_index).unwrap().get(ppos);
@@ -527,8 +527,8 @@ impl UniverseCells {
         res
     }
 
-    pub fn unstick_cells(&mut self, x: usize, y: usize, radius: usize) {
-        for cell_idx in self.get_cells(x, y, radius) {
+    pub fn unstick_cells(&mut self, center: V2i, radius: usize) {
+        for cell_idx in self.get_cells(center, radius) {
             let cell = self.cells.get_mut(&cell_idx).unwrap();
             if cell.inertia.mass > 0 {
                 continue;
@@ -542,9 +542,9 @@ impl UniverseCells {
         }
     }
 
-    pub fn remove_cells(&mut self, x: usize, y: usize, radius: usize) {
+    pub fn remove_cells(&mut self, center: V2i, radius: usize) {
         let cells_to_remove: FnvHashSet<CellIndex> = FnvHashSet::from_iter(
-            self.get_cells(x, y, radius)
+            self.get_cells(center, radius)
                 .iter()
                 // don't remove cells that may be interacting (in moving_cells)
                 .filter(|cell_idx| self.cells.get_mut(&cell_idx).unwrap().inertia.mass == 0)
