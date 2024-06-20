@@ -12,10 +12,10 @@ fn main() -> () {
         for _ in 0..10 {
             game.tick();
             game.stats();
-            game.key('w');
-            game.key(' ');
+            game.key('d');
+            //  game.key(' ');
             game.key('k');
         }
-        println!("{}\n\n", game.text_render());
+        // println!("{}\n\n", game.text_render());
     }
 }

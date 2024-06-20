@@ -126,6 +126,26 @@ impl MultiGrid {
         self.get_mut(self.pos_to_index(new_pos))
             .map(|grid| grid.put(new_pos, cell_idx));
     }
+
+    pub fn get_far_grids(&mut self, center: V2i, drop_radius: usize) -> Vec<GridIndex> {
+        let grids_to_drop: Vec<GridIndex> = self
+            .grids
+            .iter()
+            .filter(|(grid_index, _)| {
+                let grid_pos = grid_index.to_pos(self.grid_width, self.grid_height);
+                (grid_pos.x - center.x).abs() as usize / self.grid_width > drop_radius
+                    || (grid_pos.y - center.y).abs() as usize / self.grid_height > drop_radius
+            })
+            .map(|(grid_index, _)| *grid_index)
+            .collect();
+
+        grids_to_drop
+    }
+
+    pub fn drop_grid(&mut self, grid_index: GridIndex) {
+        println!("dropping grid: {grid_index:?}");
+        self.remove(grid_index);
+    }
 }
 
 #[cfg(test)]
@@ -171,6 +191,24 @@ mod tests {
         };
         let pos = index.to_pos(width, height);
         assert_eq!(pos, V2i::new(10, 10));
+
+        let index = GridIndex {
+            grid_offset: V2i::new(1, 2),
+        };
+        let pos = index.to_pos(width, height);
+        assert_eq!(pos, V2i::new(10, 20));
+
+        let index = GridIndex {
+            grid_offset: V2i::new(0, 2),
+        };
+        let pos = index.to_pos(width, height);
+        assert_eq!(pos, V2i::new(0, 20));
+
+        let index = GridIndex {
+            grid_offset: V2i::new(-1, 2),
+        };
+        let pos = index.to_pos(width, height);
+        assert_eq!(pos, V2i::new(-10, 20));
     }
 
     #[test]

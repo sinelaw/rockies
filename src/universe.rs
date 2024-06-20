@@ -2,7 +2,6 @@ use std::iter::FromIterator;
 
 use crate::assets;
 use crate::color::Color;
-use crate::grid::Grid;
 use crate::inertia::Inertia;
 use crate::multigrid::{CellIndex, GridIndex, MultiGrid, UniverseGrid};
 use crate::v2::{V2i, V2};
@@ -11,7 +10,7 @@ use wasm_bindgen::prelude::*;
 
 extern crate web_sys;
 
-const MAX_CELLS: usize = 4096;
+const MAX_CELLS: usize = 4096 * 16;
 
 // A macro to provide `println!(..)`-style syntax for `console.log` logging.
 macro_rules! log {
@@ -287,7 +286,7 @@ impl UniverseCells {
     fn wall_cell(pos: V2i) -> Cell {
         Cell {
             index: CellIndex { index: 0 },
-            color: Color { r: 150, g: 0, b: 0 },
+            color: Color::from_hsv((pos.x.abs() as i32 % 360) as f64, 1.0, 0.5),
             inertia: Inertia {
                 velocity: V2::zero(),
                 force: V2::zero(),
@@ -314,26 +313,30 @@ impl UniverseCells {
         let width = self.grids.grid_width;
         let height = self.grids.grid_height;
         let base_pos = grid_index.to_pos(width, height);
-        for x in (width / 4)..(3 * width / 4) {
-            self.add_cell(UniverseCells::wall_cell(
-                base_pos.plus(V2i::new(x as i32, (height / 2) as i32)),
-            ));
-        }
-        for x in 0..width {
-            self.add_cell(UniverseCells::wall_cell(
-                base_pos.plus(V2i::new(x as i32, 0)),
-            ));
-            self.add_cell(UniverseCells::wall_cell(
-                base_pos.plus(V2i::new(x as i32, height as i32 - 1)),
-            ));
-        }
-        for y in 0..height {
-            self.add_cell(UniverseCells::wall_cell(
-                base_pos.plus(V2i::new(0, y as i32)),
-            ));
-            self.add_cell(UniverseCells::wall_cell(
-                base_pos.plus(V2i::new(width as i32 - 1, y as i32)),
-            ));
+        println!("{base_pos:?}");
+        if base_pos.y == 0 {
+            // ground level grid
+            for x in (width / 4)..(3 * width / 4) {
+                self.add_cell(UniverseCells::wall_cell(
+                    base_pos.plus(V2i::new(x as i32, (height / 2) as i32)),
+                ));
+            }
+            for x in 0..width {
+                self.add_cell(UniverseCells::wall_cell(
+                    base_pos.plus(V2i::new(x as i32, 0)),
+                ));
+                self.add_cell(UniverseCells::wall_cell(
+                    base_pos.plus(V2i::new(x as i32, height as i32 - 1)),
+                ));
+            }
+        } else if base_pos.y > 0 {
+            for x in 0..width {
+                for y in 0..height {
+                    self.add_cell(UniverseCells::wall_cell(
+                        base_pos.plus(V2i::new(x as i32, y as i32)),
+                    ));
+                }
+            }
         }
     }
 
@@ -465,7 +468,6 @@ impl UniverseCells {
         // some previously static cells may now need to be in moving_cells
         self.moving_cells.clear();
         for (_, cell) in &self.cells {
-            //} && (cell.inertia.velocity.len() > self.velocity_threshold())
             if cell.inertia.mass > 0 {
                 self.moving_cells.push(cell.index);
             }
@@ -490,12 +492,9 @@ impl UniverseCells {
             return;
         }
         let pos = cell.inertia.pos.round();
+        let grid_index = self.grids.pos_to_index(pos);
         // don't allow adding too many cells in the same region
-        let get_res = self
-            .grids
-            .get_mut(self.grids.pos_to_index(pos))
-            .unwrap()
-            .get(pos);
+        let get_res = self.grids.get_mut(grid_index).unwrap().get(pos);
         if get_res.neighbors.len() > 6 {
             return;
         }
@@ -558,13 +557,46 @@ impl UniverseCells {
                 .unwrap()
                 .remove(cell.inertia.pos.round(), cell_idx);
             self.cells.remove(&cell_idx);
-            log!("removed: {cell_idx:?}");
         }
     }
 
     fn reset_cell_stats(&mut self) {
         for (_, cell) in &mut self.cells {
             cell.inertia.collision_stats = 0;
+        }
+    }
+
+    fn drop_far_cells(&mut self, center: V2) {
+        let drop_radius = 2;
+        let far_grids = self.grids.get_far_grids(center.round(), drop_radius);
+
+        if far_grids.len() == 0 {
+            return;
+        }
+
+        let mut removed_cells = 0;
+        for grid_index in far_grids.iter() {
+            let grid = self.grids.get_mut(*grid_index).unwrap();
+            let grid_origin = grid_index.to_pos(grid.width, grid.height);
+            for x in 0..grid.width {
+                for y in 0..grid.height {
+                    let maybe_cell = grid
+                        .get(V2i::new(x as i32, y as i32).plus(grid_origin))
+                        .value
+                        .clone();
+                    match maybe_cell {
+                        Some(cell_index) => {
+                            self.cells.remove(&cell_index);
+                            removed_cells += 1;
+                        }
+                        None => (),
+                    }
+                }
+            }
+        }
+        println!("removed {} cells", removed_cells);
+        for grid_index in far_grids {
+            self.grids.drop_grid(grid_index);
         }
     }
 }
@@ -593,6 +625,10 @@ impl Universe {
         self.player.update_velocity(self.dt);
     }
 
+    fn drop_far_cells(&mut self) {
+        self.cells.drop_far_cells(self.player.inertia.pos);
+    }
+
     pub fn tick(&mut self) {
         self.cells.stats.ticks += 1;
         self.cells.reset_cell_stats();
@@ -606,6 +642,7 @@ impl Universe {
             self.cells.calc_collisions(self.dt);
 
             self.player.update_pos(&self.cells, self.dt);
+            self.drop_far_cells();
             self.cells.update_pos(self.dt);
             self.zero_forces();
         }
