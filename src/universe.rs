@@ -334,8 +334,12 @@ impl UniverseCells {
         }
     }
 
-    pub fn get(&self, pos: V2i) -> crate::grid::GetResult<CellIndex> {
-        self.grid.get(pos)
+    pub fn get(&self, pos: V2i) -> Option<&Cell> {
+        let get_res = self.grid.get(pos);
+        match get_res.value {
+            Some(cell_idx) => self.cells.get(&cell_idx),
+            None => None,
+        }
     }
 
     fn calc_forces(&mut self, gravity: V2) {
