@@ -21,6 +21,7 @@ pub struct Game {
     height: usize,
     pixels: Vec<u32>,
     universe: Universe,
+    audio_ctx: web_sys::HtmlAudioElement,
 }
 
 #[wasm_bindgen]
@@ -28,11 +29,14 @@ impl Game {
     pub fn new(width: usize, height: usize) -> Self {
         utils::set_panic_hook();
         console_error_panic_hook::set_once();
+        // let audio_ctx = web_sys::AudioContext::new().unwrap();
+        let elem = web_sys::HtmlAudioElement::new_with_src("bonk.ogg").unwrap();
         Self {
             width,
             height,
             pixels: vec![0xFFFFFF; (width * height) as usize],
             universe: Universe::new(width, height),
+            audio_ctx: elem,
         }
     }
 
@@ -88,6 +92,8 @@ impl Game {
             'w' => self.universe.player.move_up(),
             's' => self.universe.player.move_down(),
             ' ' => {
+                let _: web_sys::js_sys::Promise = self.audio_ctx.play().unwrap();
+
                 self.universe.player.next_frame();
                 let pos: V2i = self.universe.player.inertia.pos.round();
                 self.universe.cells.add_cell(Cell {
