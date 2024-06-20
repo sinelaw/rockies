@@ -91,7 +91,7 @@ pub struct Player {
     pub h: usize,
     pub inertia: Inertia,
 
-    frame: usize,
+    pub frame: usize,
     pub direction: i32,
 }
 
@@ -116,7 +116,7 @@ impl Player {
         }
     }
 
-    fn next_frame(&mut self) {
+    pub fn next_frame(&mut self) {
         self.frame += 1;
     }
 
