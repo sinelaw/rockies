@@ -4,13 +4,15 @@ mod inertia;
 mod assets;
 mod color;
 mod grid;
+mod multigrid;
 mod universe;
 mod utils;
 mod v2;
 use color::Color;
 
 use inertia::Inertia;
-use universe::{Cell, CellIndex, Stats, Universe};
+use multigrid::CellIndex;
+use universe::{Cell, Stats, Universe};
 
 use v2::{V2i, V2};
 use wasm_bindgen::prelude::*;
@@ -27,7 +29,7 @@ pub struct Game {
 impl Game {
     pub fn new(width: usize, height: usize) -> Self {
         utils::set_panic_hook();
-        console_error_panic_hook::set_once();
+
         Self {
             width,
             height,
@@ -52,11 +54,24 @@ impl Game {
     pub fn render(&mut self) -> () {
         self.pixels.fill(0xFFFFFF);
 
-        for x in 0..self.width {
-            for y in 0..self.height {
-                let pos = V2i::new(x as i32, y as i32);
-                let get_res = self.universe.cells.get(V2i::new(x as i32, y as i32));
-                let pixel_idx = (pos.y * (self.width as i32) + pos.x) as usize;
+        let w = self.width as i32;
+        let h = self.height as i32;
+        let render_offset = V2i::new(w / 2, h / 2);
+        let base_pos = self
+            .universe
+            .player
+            .inertia
+            .pos
+            .round()
+            .minus(render_offset);
+
+        for x in 0..w {
+            for y in 0..h {
+                let pixel_pos = V2i::new(x, y);
+                let pos = base_pos.plus(pixel_pos);
+                let get_res = self.universe.cells.get(pos);
+
+                let pixel_idx = (pixel_pos.y * w + pixel_pos.x) as usize;
                 match get_res {
                     Some(cell) => {
                         self.pixels[pixel_idx] = if cell.inertia.collision_stats > 0 {
@@ -69,9 +84,12 @@ impl Game {
                 }
             }
         }
-        self.universe
-            .player
-            .render(&mut self.pixels, self.width, self.height);
+        self.universe.player.render(
+            &mut self.pixels,
+            self.universe.player.inertia.pos.round().minus(base_pos),
+            self.width,
+            self.height,
+        );
     }
 
     pub fn text_render(&self) -> String {

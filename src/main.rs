@@ -14,6 +14,7 @@ fn main() -> () {
             game.stats();
             game.key('w');
             game.key(' ');
+            game.key('k');
         }
         println!("{}\n\n", game.text_render());
     }

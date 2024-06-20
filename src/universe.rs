@@ -4,6 +4,7 @@ use crate::assets;
 use crate::color::Color;
 use crate::grid::Grid;
 use crate::inertia::Inertia;
+use crate::multigrid::{CellIndex, GridIndex, MultiGrid, UniverseGrid};
 use crate::v2::{V2i, V2};
 use fnv::{FnvHashMap, FnvHashSet};
 use wasm_bindgen::prelude::*;
@@ -18,11 +19,6 @@ macro_rules! log {
         // web_sys::console::log_1(&format!( $( $t )* ).into())
         // println!( $( $t )* );
     };
-}
-
-#[derive(Default, Hash, Eq, Clone, Copy, Debug, PartialEq)]
-pub struct CellIndex {
-    pub index: usize,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -154,23 +150,29 @@ impl Player {
         )
     }
 
-    pub fn render(&self, pixels: &mut Vec<u32>, buf_width: usize, buf_height: usize) -> () {
+    pub fn render(
+        &self,
+        pixels: &mut Vec<u32>,
+        offset: V2i,
+        buf_width: usize,
+        buf_height: usize,
+    ) -> () {
         let hammy_0: (usize, usize, &[Color]) = assets::HAMMY_0;
         let hammy_1: (usize, usize, &[Color]) = assets::HAMMY_1;
         let hammy_2: (usize, usize, &[Color]) = assets::HAMMY_2;
         let hammies = [hammy_0, hammy_1, hammy_2];
         let (w, h, colors) = hammies[self.frame % 3];
 
-        for x in 0..w {
-            for y in 0..h {
-                let py = self.inertia.pos.y + y as f64;
+        for x in 0..(w as i32) {
+            for y in 0..(h as i32) {
+                let py = (offset.y + y) as f64;
                 let px = if self.direction >= 0 {
-                    self.inertia.pos.x + x as f64
+                    (offset.x + x) as f64
                 } else {
-                    self.inertia.pos.x + (w - x - 1) as f64
+                    (offset.x + (w as i32 - x - 1)) as f64
                 };
                 if Self::in_bounds(px, py, buf_width, buf_height) {
-                    let c = colors[x + y * w];
+                    let c = colors[(x + y * w as i32) as usize];
                     if c.r == 0 && c.g == 0 && c.b == 0 {
                         continue;
                     }
@@ -199,14 +201,16 @@ impl Player {
                     x: new_player_pos.x + x as f64,
                     y: new_player_pos.y + y as f64,
                 };
-                if !cells.grid.is_in_bounds(pos.round()) {
+                let posi = pos.round();
+                let grid = cells.grids.get(cells.grids.pos_to_index(posi)).unwrap();
+                if !grid.is_in_bounds(posi) {
                     continue;
                 }
                 let player_part = Inertia {
                     pos: pos,
                     ..self.inertia
                 };
-                let get_res = cells.grid.get(pos.round());
+                let get_res = grid.get(posi);
                 for cell_idx in get_res.neighbors {
                     let cell_inertia = &cells.cells[cell_idx].inertia;
 
@@ -242,55 +246,6 @@ impl Player {
     }
 }
 
-// Keeps track of the visible part of the world
-pub struct UniverseGrid {
-    pub width: usize,
-    pub height: usize,
-
-    offset: V2i,
-    grid: Grid<CellIndex>,
-}
-
-impl UniverseGrid {
-    fn is_in_bounds(&self, pos: V2i) -> bool {
-        let relative_pos = pos.minus(self.offset);
-        relative_pos.x >= 0
-            && relative_pos.y >= 0
-            && relative_pos.x < self.width as i32
-            && relative_pos.y < self.height as i32
-    }
-
-    fn set_offset(&mut self, offset: V2i) {
-        self.offset = offset;
-    }
-
-    fn update_cell_pos(&mut self, cell_idx: CellIndex, old_pos: V2i, new_pos: V2i) {
-        // update grid:
-        if self.is_in_bounds(old_pos) {
-            self.remove(old_pos, cell_idx);
-        }
-        if self.is_in_bounds(new_pos) {
-            self.put(new_pos, cell_idx);
-        }
-    }
-
-    pub fn remove(&mut self, pos: V2i, cell_idx: CellIndex) {
-        assert!(self.is_in_bounds(pos));
-        self.grid
-            .remove((pos.x) as usize, (pos.y) as usize, cell_idx)
-    }
-
-    pub fn put(&mut self, pos: V2i, cell_idx: CellIndex) {
-        assert!(self.is_in_bounds(pos));
-        self.grid.put((pos.x) as usize, (pos.y) as usize, cell_idx)
-    }
-
-    pub fn get(&self, pos: V2i) -> crate::grid::GetResult<CellIndex> {
-        assert!(self.is_in_bounds(pos));
-        self.grid.get(pos.x as usize, pos.y as usize)
-    }
-}
-
 fn clamp_velocity(v: V2) -> V2 {
     let max = V2 { x: 1.0, y: 1.0 };
     let min = V2 { x: -1.0, y: -1.0 };
@@ -304,8 +259,8 @@ fn velocity_threshold(dt: f64) -> f64 {
 pub struct UniverseCells {
     pub cells: FnvHashMap<CellIndex, Cell>,
     moving_cells: Vec<CellIndex>,
-    grid: UniverseGrid,
 
+    grids: MultiGrid,
     next_cell_index: usize,
 
     stats: Stats,
@@ -319,13 +274,8 @@ impl UniverseCells {
         UniverseCells {
             cells: FnvHashMap::default(),
             moving_cells: Vec::default(),
-            grid: UniverseGrid {
-                grid: Grid::new(width as usize, height as usize),
-                width: width,
-                height: height,
-                offset: V2i::zero(),
-            },
 
+            grids: MultiGrid::new(width, height),
             next_cell_index: 0,
             stats: Stats::zero(),
 
@@ -334,12 +284,73 @@ impl UniverseCells {
         }
     }
 
-    pub fn get(&self, pos: V2i) -> Option<&Cell> {
-        let get_res = self.grid.get(pos);
+    fn wall_cell(pos: V2i) -> Cell {
+        Cell {
+            index: CellIndex { index: 0 },
+            color: Color { r: 150, g: 0, b: 0 },
+            inertia: Inertia {
+                velocity: V2::zero(),
+                force: V2::zero(),
+                pos: pos.to_v2(),
+                mass: 0,
+                elasticity: 1.0, // allow other mass to determine
+                collision_stats: 0,
+            },
+        }
+    }
+
+    fn ensure_grid(&mut self, grid_index: GridIndex) {
+        let width = self.grids.grid_width;
+        let height = self.grids.grid_height;
+        let is_new = self
+            .grids
+            .or_insert_with(grid_index, || UniverseGrid::new(grid_index, width, height));
+        if is_new {
+            self.create_wall_cells(grid_index);
+        }
+    }
+
+    fn create_wall_cells(&mut self, grid_index: GridIndex) {
+        let width = self.grids.grid_width;
+        let height = self.grids.grid_height;
+        let base_pos = grid_index.to_pos(width, height);
+        for x in (width / 4)..(3 * width / 4) {
+            self.add_cell(UniverseCells::wall_cell(
+                base_pos.plus(V2i::new(x as i32, (height / 2) as i32)),
+            ));
+        }
+        for x in 0..width {
+            self.add_cell(UniverseCells::wall_cell(
+                base_pos.plus(V2i::new(x as i32, 0)),
+            ));
+            self.add_cell(UniverseCells::wall_cell(
+                base_pos.plus(V2i::new(x as i32, height as i32 - 1)),
+            ));
+        }
+        for y in 0..height {
+            self.add_cell(UniverseCells::wall_cell(
+                base_pos.plus(V2i::new(0, y as i32)),
+            ));
+            self.add_cell(UniverseCells::wall_cell(
+                base_pos.plus(V2i::new(width as i32 - 1, y as i32)),
+            ));
+        }
+    }
+
+    pub fn get(&mut self, pos: V2i) -> Option<&Cell> {
+        let grid_index = self.grids.pos_to_index(pos);
+        self.ensure_grid(grid_index);
+        let get_res = self.grids.get(grid_index).unwrap().get(pos);
         match get_res.value {
             Some(cell_idx) => self.cells.get(&cell_idx),
             None => None,
         }
+    }
+
+    pub fn get_or_load(&mut self, pos: V2i) -> &Cell {
+        let grid_index = self.grids.pos_to_index(pos);
+        self.ensure_grid(grid_index);
+        return self.get(pos).unwrap();
     }
 
     fn calc_forces(&mut self, gravity: V2) {
@@ -377,14 +388,16 @@ impl UniverseCells {
 
         for cell1_idx in self.moving_cells.iter() {
             let cell1 = &self.cells[cell1_idx];
+            let grid_index = self.grids.pos_to_index(cell1.inertia.pos.round());
 
-            if !self.grid.is_in_bounds(cell1.inertia.pos.round()) {
+            if self.grids.get(grid_index).is_none() {
                 continue;
             }
             let get_res = self
-                .grid
-                .grid
-                .get(cell1.inertia.pos.x as usize, cell1.inertia.pos.y as usize);
+                .grids
+                .get(grid_index)
+                .unwrap()
+                .get(cell1.inertia.pos.round());
             for cell2_idx in get_res.neighbors {
                 if *cell1_idx == *cell2_idx {
                     continue;
@@ -438,9 +451,9 @@ impl UniverseCells {
 
             let (new_inertia1, new_inertia2) = Inertia::collide(inertia1, inertia2);
 
-            self.grid
+            self.grids
                 .update_cell_pos(*cell1_idx, inertia1.pos.round(), new_inertia1.pos.round());
-            self.grid
+            self.grids
                 .update_cell_pos(*cell2_idx, inertia2.pos.round(), new_inertia2.pos.round());
 
             self.cells.get_mut(cell1_idx).unwrap().inertia = new_inertia1;
@@ -452,9 +465,6 @@ impl UniverseCells {
         // some previously static cells may now need to be in moving_cells
         self.moving_cells.clear();
         for (_, cell) in &self.cells {
-            if !self.grid.is_in_bounds(cell.inertia.pos.round()) {
-                continue;
-            }
             //} && (cell.inertia.velocity.len() > self.velocity_threshold())
             if cell.inertia.mass > 0 {
                 self.moving_cells.push(cell.index);
@@ -468,7 +478,7 @@ impl UniverseCells {
             let new_pos = cell.inertia.pos.plus(cell.inertia.velocity.cmul(dt));
 
             // update grid:
-            self.grid
+            self.grids
                 .update_cell_pos(*cell_index, old_pos.round(), new_pos.round());
             // update position:
             self.cells.get_mut(cell_index).unwrap().inertia.pos = new_pos;
@@ -479,11 +489,13 @@ impl UniverseCells {
         if self.cells.len() == MAX_CELLS {
             return;
         }
+        let pos = cell.inertia.pos.round();
         // don't allow adding too many cells in the same region
         let get_res = self
-            .grid
-            .grid
-            .get(cell.inertia.pos.x as usize, cell.inertia.pos.y as usize);
+            .grids
+            .get_mut(self.grids.pos_to_index(pos))
+            .unwrap()
+            .get(pos);
         if get_res.neighbors.len() > 6 {
             return;
         }
@@ -494,20 +506,22 @@ impl UniverseCells {
             index: self.next_cell_index,
         };
         self.cells.insert(index, Cell { index, ..cell });
-        self.grid.put(cell.inertia.pos.round(), index);
+        self.grids
+            .get_mut(self.grids.pos_to_index(pos))
+            .unwrap()
+            .put(pos, index);
         self.moving_cells.push(index);
     }
 
-    fn get_cells(&self, x: usize, y: usize, radius: usize) -> Vec<CellIndex> {
+    fn get_cells(&mut self, x: usize, y: usize, radius: usize) -> Vec<CellIndex> {
         let mut res = Vec::new();
         let r = radius as i32;
         for i in -r..r {
             for j in -r..r {
                 let ppos = V2i::new(x as i32 + i, y as i32 + j);
-                if !self.grid.is_in_bounds(ppos) {
-                    continue;
-                }
-                let get_res = self.grid.get(ppos);
+                let grid_index = self.grids.pos_to_index(ppos);
+                self.ensure_grid(grid_index);
+                let get_res = self.grids.get(grid_index).unwrap().get(ppos);
                 res.extend_from_slice(get_res.neighbors);
             }
         }
@@ -515,7 +529,6 @@ impl UniverseCells {
     }
 
     pub fn unstick_cells(&mut self, x: usize, y: usize, radius: usize) {
-        let w = self.grid.width as f64;
         for cell_idx in self.get_cells(x, y, radius) {
             let cell = self.cells.get_mut(&cell_idx).unwrap();
             if cell.inertia.mass > 0 {
@@ -524,7 +537,7 @@ impl UniverseCells {
             cell.unset_static();
             self.moving_cells.push(cell_idx);
             cell.inertia.velocity = V2 {
-                x: 2.0 * (x as f64 - w / 2.0) / w,
+                x: 2.0 * (cell_idx.index % 10 - 5) as f64 / 10.0,
                 y: -1.0, //(cell_idx.index % 10 - 5) as f64 / 10000.0 * self.dt,
             };
         }
@@ -540,7 +553,10 @@ impl UniverseCells {
         );
         for cell_idx in cells_to_remove {
             let cell = self.cells.get_mut(&cell_idx).unwrap();
-            self.grid.remove(cell.inertia.pos.round(), cell_idx);
+            self.grids
+                .get_mut(self.grids.pos_to_index(cell.inertia.pos.round()))
+                .unwrap()
+                .remove(cell.inertia.pos.round(), cell_idx);
             self.cells.remove(&cell_idx);
             log!("removed: {cell_idx:?}");
         }
@@ -601,44 +617,13 @@ impl Universe {
         self.cells.stats.get_and_reset()
     }
 
-    fn wall_cell(&self, x: f64, y: f64) -> Cell {
-        Cell {
-            index: CellIndex { index: 0 },
-            color: Color { r: 150, g: 0, b: 0 },
-            inertia: Inertia {
-                velocity: V2::zero(),
-                force: V2::zero(),
-                pos: V2 { x, y },
-                mass: 0,
-                elasticity: 1.0, // allow other mass to determine
-                collision_stats: 0,
-            },
-        }
-    }
     pub fn new(width: usize, height: usize) -> Universe {
-        let mut uni = Universe {
+        Universe {
             cells: UniverseCells::new(width, height),
             gravity: V2 { x: 0.0, y: 0.1 },
             dt: 0.01,
 
             player: Player::new(10, 10),
-        };
-
-        for x in width / 4..(3 * width / 4) {
-            uni.cells
-                .add_cell(uni.wall_cell(x as f64, (height / 2) as f64));
         }
-        for x in 0..width {
-            uni.cells.add_cell(uni.wall_cell(x as f64, 0.0));
-            uni.cells
-                .add_cell(uni.wall_cell(x as f64, (height - 1) as f64));
-        }
-        for y in 0..height {
-            uni.cells.add_cell(uni.wall_cell(0.0, y as f64));
-            uni.cells
-                .add_cell(uni.wall_cell((width - 1) as f64, y as f64));
-        }
-
-        uni
     }
 }

@@ -4,7 +4,7 @@ pub struct V2 {
     pub y: f64,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Hash, Copy, Debug, PartialEq, Eq)]
 pub struct V2i {
     pub x: i32,
     pub y: i32,
@@ -22,6 +22,13 @@ impl V2i {
         }
     }
 
+    pub fn plus(&self, offset: V2i) -> V2i {
+        V2i {
+            x: self.x + offset.x,
+            y: self.y + offset.y,
+        }
+    }
+
     pub fn minus(&self, offset: V2i) -> V2i {
         V2i {
             x: self.x - offset.x,
@@ -35,7 +42,7 @@ impl V2i {
 }
 
 fn round(x: f64) -> i32 {
-    (x + 0.5) as i32
+    x.round() as i32
 }
 
 impl V2 {
@@ -152,5 +159,21 @@ mod tests {
         let v1 = V2 { x: 3.0, y: 4.0 };
         let v2 = V2 { x: 1.0, y: 2.0 };
         assert_eq!(v1.dot(v2), 11.0);
+    }
+
+    #[test]
+    fn test_v2_round() {
+        let v = V2 { x: 1.2, y: 2.8 };
+        let v2i = v.round();
+        assert_eq!(v2i.x, 1);
+        assert_eq!(v2i.y, 3);
+    }
+
+    #[test]
+    fn test_v2_round_negative() {
+        let v = V2 { x: -1.0, y: -1.0 };
+        let v2i = v.round();
+        assert_eq!(v2i.x, -1);
+        assert_eq!(v2i.y, -1);
     }
 }
