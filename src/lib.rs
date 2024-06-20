@@ -88,14 +88,11 @@ impl Game {
             'w' => self.universe.player.move_up(),
             's' => self.universe.player.move_down(),
             ' ' => {
+                self.universe.player.next_frame();
                 let pos: V2i = self.universe.player.inertia.pos.round();
                 self.universe.cells.add_cell(Cell {
                     index: CellIndex { index: 0 },
-                    color: Color {
-                        r: 0,
-                        g: 150,
-                        b: ((155 * pos.x) % 255) as u8,
-                    },
+                    color: Color::from_hsv((self.universe.player.frame % 360) as f64, 1.0, 1.0),
                     inertia: Inertia {
                         velocity: V2::new(1.0 * (self.universe.player.direction as f64), -1.0),
                         force: V2::zero(),
