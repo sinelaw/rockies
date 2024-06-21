@@ -24,6 +24,7 @@ pub struct Game {
     pixels: Vec<u32>,
     universe: Universe,
     keys: HashSet<char>,
+    shoot_color: Color,
 }
 
 #[wasm_bindgen]
@@ -37,6 +38,7 @@ impl Game {
             pixels: vec![0xFFFFFF; (width * height) as usize],
             universe: Universe::new(width, height),
             keys: HashSet::new(),
+            shoot_color: Color::hsv(0.0, 1.0, 1.0),
         }
     }
 
@@ -112,6 +114,10 @@ impl Game {
         let mut ys = Vec::new();
         for key in self.keys.iter() {
             match key {
+                c @ '0'..='9' => {
+                    self.shoot_color =
+                        Color::hsv((*c as u8 - '0' as u8) as f64 / 10.0 * 360.0, 1.0, 1.0);
+                }
                 'a' => {
                     self.universe.player.move_left();
                     xs.push(-1);
@@ -138,11 +144,7 @@ impl Game {
 
                     self.universe.cells.add_cell(Cell {
                         index: CellIndex { index: 0 },
-                        color: Color::hsv(
-                            ((self.universe.player.frame / 10) % 360) as f64,
-                            1.0,
-                            1.0,
-                        ),
+                        color: self.shoot_color,
                         inertia: Inertia {
                             velocity: V2::new(1.0 * (self.universe.player.direction as f64), -1.0),
                             force: V2::zero(),
