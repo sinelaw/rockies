@@ -58,7 +58,7 @@ impl UniverseGrid {
 #[derive(Hash, Eq, Clone, Copy, Debug, PartialEq)]
 pub struct GridIndex {
     // offset in units of width, height
-    grid_offset: V2i,
+    pub grid_offset: V2i,
 }
 
 impl GridIndex {

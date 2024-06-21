@@ -283,10 +283,10 @@ impl UniverseCells {
         }
     }
 
-    fn wall_cell(pos: V2i) -> Cell {
+    fn wall_cell(pos: V2i, color: Color) -> Cell {
         Cell {
-            index: CellIndex { index: 0 },
-            color: Color::from_hsv((pos.x.abs() as i32 % 360) as f64, 1.0, 0.5),
+            index: CellIndex::default(),
+            color: color,
             inertia: Inertia {
                 velocity: V2::zero(),
                 force: V2::zero(),
@@ -313,27 +313,31 @@ impl UniverseCells {
         let width = self.grids.grid_width;
         let height = self.grids.grid_height;
         let base_pos = grid_index.to_pos(width, height);
-        println!("{base_pos:?}");
-        if base_pos.y == 0 {
+        if grid_index.grid_offset.y == 0 {
             // ground level grid
             for x in (width / 4)..(3 * width / 4) {
                 self.add_cell(UniverseCells::wall_cell(
                     base_pos.plus(V2i::new(x as i32, (height / 2) as i32)),
+                    Color::rgb(255, 0, 0),
                 ));
             }
             for x in 0..width {
                 self.add_cell(UniverseCells::wall_cell(
                     base_pos.plus(V2i::new(x as i32, 0)),
+                    Color::rgb(255, 0, 0),
                 ));
+
                 self.add_cell(UniverseCells::wall_cell(
                     base_pos.plus(V2i::new(x as i32, height as i32 - 1)),
+                    Color::hsv(130.0, 1.0, 0.5), // green
                 ));
             }
-        } else if base_pos.y > 0 {
+        } else if grid_index.grid_offset.y > 0 {
             for x in 0..width {
                 for y in 0..height {
                     self.add_cell(UniverseCells::wall_cell(
                         base_pos.plus(V2i::new(x as i32, y as i32)),
+                        Color::hsv(30.0, 1.0, 0.5), // brown
                     ));
                 }
             }

@@ -107,11 +107,7 @@ impl Game {
 
                 self.universe.cells.add_cell(Cell {
                     index: CellIndex { index: 0 },
-                    color: Color::from_hsv(
-                        ((self.universe.player.frame / 10) % 360) as f64,
-                        1.0,
-                        1.0,
-                    ),
+                    color: Color::hsv(((self.universe.player.frame / 10) % 360) as f64, 1.0, 1.0),
                     inertia: Inertia {
                         velocity: V2::new(1.0 * (self.universe.player.direction as f64), -1.0),
                         force: V2::zero(),

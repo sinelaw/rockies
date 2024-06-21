@@ -1,11 +1,10 @@
 import { Game, Cell } from "rockies";
 import { memory } from "rockies/rockies_bg.wasm";
 
+const canvas = document.getElementById("the-canvas");
+
 const SIZE = 64;
-const CELL_SIZE = (0.7 * Math.min(document.body.clientWidth, document.body.clientHeight) / SIZE) | 0; // px
-const GRID_COLOR = "#CCCCCC";
-const DEAD_COLOR = "#FFFFFF";
-const ALIVE_COLOR = "#000000";
+const CELL_SIZE = Math.min(canvas.clientWidth / SIZE, canvas.clientHeight / SIZE) | 0; // px
 
 
 const game = Game.new(SIZE, SIZE);
@@ -17,10 +16,8 @@ const cells_count = document.getElementById("cells-count");
 const collisions_count = document.getElementById("collisions-count");
 const collision_pairs_tested = document.getElementById("collision-pairs-tested");
 
-const canvas = document.getElementById("the-canvas");
-
-canvas.height = (CELL_SIZE + 1) * height + 1;
-canvas.width = (CELL_SIZE + 1) * width + 1;
+canvas.height = (CELL_SIZE) * height + 1;
+canvas.width = (CELL_SIZE) * width + 1;
 
 const ctx = canvas.getContext('2d');
 
@@ -43,7 +40,6 @@ const renderLoop = () => {
 
     game.tick();
 
-    drawGrid();
     drawPixels();
 
     let stats = game.stats();
@@ -58,25 +54,6 @@ const renderLoop = () => {
     requestAnimationFrame(renderLoop);
 };
 
-const drawGrid = () => {
-    ctx.beginPath();
-    ctx.strokeStyle = GRID_COLOR;
-
-    // Vertical lines.
-    for (let i = 0; i <= width; i++) {
-        ctx.moveTo(i * (CELL_SIZE + 1) + 1, 0);
-        ctx.lineTo(i * (CELL_SIZE + 1) + 1, (CELL_SIZE + 1) * height + 1);
-    }
-
-    // Horizontal lines.
-    for (let j = 0; j <= height; j++) {
-        ctx.moveTo(0, j * (CELL_SIZE + 1) + 1);
-        ctx.lineTo((CELL_SIZE + 1) * width + 1, j * (CELL_SIZE + 1) + 1);
-    }
-
-    ctx.stroke();
-};
-
 const getIndex = (row, column) => {
     return row * width + column;
 };
@@ -84,8 +61,6 @@ const getIndex = (row, column) => {
 const drawPixels = () => {
     const pixelsPtr = game.pixels();
     const pixels = new Uint32Array(memory.buffer, pixelsPtr, width * height);
-
-
 
     for (let row = 0; row < height; row++) {
         for (let col = 0; col < width; col++) {
@@ -97,8 +72,8 @@ const drawPixels = () => {
             //console.log("[%d,%d] = %s = %s", row, col, pixels[idx].toString(16), ctx.fillStyle);
 
             ctx.fillRect(
-                col * (CELL_SIZE + 1) + 1,
-                row * (CELL_SIZE + 1) + 1,
+                col * CELL_SIZE + 1,
+                row * CELL_SIZE + 1,
                 CELL_SIZE,
                 CELL_SIZE
             );
@@ -109,9 +84,6 @@ const drawPixels = () => {
 
 };
 
-
-
-drawGrid();
 drawPixels();
 requestAnimationFrame(renderLoop);
 

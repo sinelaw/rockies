@@ -10,6 +10,10 @@ impl Color {
         (self.r as u32 * 256 * 256) + (self.g as u32 * 256) + self.b as u32
     }
 
+    pub fn rgb(r: u8, g: u8, b: u8) -> Color {
+        Color { r, g, b }
+    }
+
     /// Converts HSV color to RGB color.
     ///
     /// # Arguments
@@ -21,7 +25,7 @@ impl Color {
     /// # Returns
     ///
     /// A `Color` struct representing the RGB color.
-    pub fn from_hsv(h: f64, s: f64, v: f64) -> Color {
+    pub fn hsv(h: f64, s: f64, v: f64) -> Color {
         let c = v * s;
         let h_prime = h / 60.0;
         let x = c * (1.0 - (h_prime % 2.0 - 1.0).abs());
