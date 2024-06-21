@@ -474,7 +474,12 @@ impl UniverseCells {
         self.moving_cells = self
             .moving_cells
             .iter()
-            .filter(|cell_idx| self.cells.get(cell_idx).unwrap().inertia.mass > 0)
+            .filter(|cell_idx| {
+                self.cells
+                    .get(cell_idx)
+                    .map(|x| x.inertia.mass > 0)
+                    .unwrap_or(false)
+            })
             .map(|x| *x)
             .collect();
 
