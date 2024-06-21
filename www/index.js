@@ -26,17 +26,14 @@ const heldKeys = new Set();
 
 
 document.onkeydown = (e) => {
-    heldKeys.add(e.key);
+    game.key_down(e.key);
 };
 document.onkeyup = (e) => {
-    heldKeys.delete(e.key);
+    game.key_up(e.key);
 };
 
 
 const renderLoop = () => {
-    for (let key of heldKeys) {
-        game.key(key);
-    }
 
     game.tick();
 

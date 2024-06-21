@@ -547,21 +547,21 @@ impl UniverseCells {
         }
     }
 
-    pub fn remove_cells(&mut self, center: V2i, radius: usize) {
-        let cells_to_remove: FnvHashSet<CellIndex> = FnvHashSet::from_iter(
-            self.get_cells(center, radius)
-                .iter()
-                // don't remove cells that may be interacting (in moving_cells)
-                .filter(|cell_idx| self.cells.get_mut(&cell_idx).unwrap().inertia.mass == 0)
-                .map(|cell_idx| *cell_idx),
-        );
-        for cell_idx in cells_to_remove {
-            let cell = self.cells.get_mut(&cell_idx).unwrap();
-            self.grids
-                .get_mut(self.grids.pos_to_index(cell.inertia.pos.round()))
-                .unwrap()
-                .remove(cell.inertia.pos.round(), cell_idx);
-            self.cells.remove(&cell_idx);
+    pub fn remove_cell(&mut self, ppos: V2i) {
+        let grid_index = self.grids.pos_to_index(ppos);
+        self.ensure_grid(grid_index);
+        let grid = self.grids.get_mut(grid_index).unwrap();
+        let cell_idx = *grid.get(ppos).value;
+        match cell_idx {
+            Some(cell_idx) => {
+                let cell = self.cells.get_mut(&cell_idx).unwrap();
+                if cell.inertia.mass > 0 {
+                    return;
+                }
+                grid.remove(cell.inertia.pos.round(), cell_idx);
+                self.cells.remove(&cell_idx);
+            }
+            None => (),
         }
     }
 

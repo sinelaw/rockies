@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{collections::HashSet, fmt};
 mod inertia;
 
 mod assets;
@@ -23,6 +23,7 @@ pub struct Game {
     height: usize,
     pixels: Vec<u32>,
     universe: Universe,
+    keys: HashSet<char>,
 }
 
 #[wasm_bindgen]
@@ -35,6 +36,7 @@ impl Game {
             height,
             pixels: vec![0xFFFFFF; (width * height) as usize],
             universe: Universe::new(width, height),
+            keys: HashSet::new(),
         }
     }
 
@@ -44,6 +46,7 @@ impl Game {
 
     pub fn tick(&mut self) {
         self.render();
+        self.process_keys();
         self.universe.tick();
     }
 
@@ -96,37 +99,91 @@ impl Game {
         self.to_string()
     }
 
-    pub fn key(&mut self, key: char) {
-        match key {
-            'a' => self.universe.player.move_left(),
-            'd' => self.universe.player.move_right(),
-            'w' => self.universe.player.move_up(),
-            's' => self.universe.player.move_down(),
-            ' ' => {
-                self.universe.player.next_frame();
+    pub fn key_down(&mut self, key: char) {
+        self.keys.insert(key);
+    }
 
-                self.universe.cells.add_cell(Cell {
-                    index: CellIndex { index: 0 },
-                    color: Color::hsv(((self.universe.player.frame / 10) % 360) as f64, 1.0, 1.0),
-                    inertia: Inertia {
-                        velocity: V2::new(1.0 * (self.universe.player.direction as f64), -1.0),
-                        force: V2::zero(),
-                        pos: self.universe.player.mouth_pos(),
-                        mass: 1,
-                        elasticity: 0.5,
-                        collision_stats: 0,
-                    },
-                });
+    pub fn key_up(&mut self, key: char) {
+        self.keys.remove(&key);
+    }
+
+    pub fn process_keys(&mut self) {
+        let mut xs = Vec::new();
+        let mut ys = Vec::new();
+        for key in self.keys.iter() {
+            match key {
+                'a' => {
+                    self.universe.player.move_left();
+                    xs.push(-1);
+                    xs.push(-2);
+                }
+                'd' => {
+                    self.universe.player.move_right();
+                    xs.push(self.universe.player.w as i32);
+                    xs.push((self.universe.player.w + 1) as i32);
+                }
+                'w' => {
+                    self.universe.player.move_up();
+                    ys.push(-1);
+                    ys.push(-2);
+                }
+                's' => {
+                    self.universe.player.move_down();
+                    ys.push(self.universe.player.h as i32);
+                    ys.push((self.universe.player.h + 1) as i32);
+                }
+
+                ' ' => {
+                    self.universe.player.next_frame();
+
+                    self.universe.cells.add_cell(Cell {
+                        index: CellIndex { index: 0 },
+                        color: Color::hsv(
+                            ((self.universe.player.frame / 10) % 360) as f64,
+                            1.0,
+                            1.0,
+                        ),
+                        inertia: Inertia {
+                            velocity: V2::new(1.0 * (self.universe.player.direction as f64), -1.0),
+                            force: V2::zero(),
+                            pos: self.universe.player.mouth_pos(),
+                            mass: 1,
+                            elasticity: 0.5,
+                            collision_stats: 0,
+                        },
+                    });
+                }
+                _ => (),
             }
-            'k' => {
-                let pos: V2i = self.universe.player.inertia.pos.round();
-                for x in 0..self.universe.player.w {
+        }
+        if self.keys.contains(&'k') {
+            let pos: V2i = self.universe.player.inertia.pos.round();
+            for x in 0..self.universe.player.w {
+                for y in 0..self.universe.player.h {
                     self.universe
                         .cells
-                        .remove_cells(pos.plus(V2i::new(x as i32, 0)), self.universe.player.h - 1);
+                        .remove_cell(pos.plus(V2i::new(x as i32, y as i32)));
                 }
             }
-            _ => (),
+            for x in xs.iter() {
+                for y in ys.iter() {
+                    self.universe.cells.remove_cell(pos.plus(V2i::new(*x, *y)));
+                }
+            }
+            for x in 0..self.universe.player.w {
+                for y in ys.iter() {
+                    self.universe
+                        .cells
+                        .remove_cell(pos.plus(V2i::new(x as i32, *y)));
+                }
+            }
+            for y in 0..self.universe.player.h {
+                for x in xs.iter() {
+                    self.universe
+                        .cells
+                        .remove_cell(pos.plus(V2i::new(*x, y as i32)));
+                }
+            }
         }
     }
 

@@ -8,13 +8,12 @@ fn main() -> () {
         }
     } */
 
+    game.key_down('d');
+    game.key_down('k');
     loop {
         for _ in 0..10 {
             game.tick();
             game.stats();
-            game.key('d');
-            //  game.key(' ');
-            game.key('k');
         }
         // println!("{}\n\n", game.text_render());
     }
