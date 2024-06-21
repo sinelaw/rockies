@@ -257,7 +257,7 @@ fn velocity_threshold(dt: f64) -> f64 {
 
 pub struct UniverseCells {
     pub cells: FnvHashMap<CellIndex, Cell>,
-    moving_cells: Vec<CellIndex>,
+    moving_cells: FnvHashSet<CellIndex>,
 
     grids: MultiGrid,
     next_cell_index: usize,
@@ -272,7 +272,7 @@ impl UniverseCells {
     fn new(width: usize, height: usize) -> UniverseCells {
         UniverseCells {
             cells: FnvHashMap::default(),
-            moving_cells: Vec::default(),
+            moving_cells: FnvHashSet::default(),
 
             grids: MultiGrid::new(width, height),
             next_cell_index: 0,
@@ -514,7 +514,7 @@ impl UniverseCells {
             .get_mut(self.grids.pos_to_index(pos))
             .unwrap()
             .put(pos, index);
-        self.moving_cells.push(index);
+        self.moving_cells.insert(index);
     }
 
     fn get_cells(&mut self, center: V2i, radius: usize) -> Vec<CellIndex> {
@@ -539,7 +539,7 @@ impl UniverseCells {
                 continue;
             }
             cell.unset_static();
-            self.moving_cells.push(cell_idx);
+            self.moving_cells.insert(cell_idx);
             cell.inertia.velocity = V2 {
                 x: 2.0 * (cell_idx.index % 10 - 5) as f64 / 10.0,
                 y: -1.0, //(cell_idx.index % 10 - 5) as f64 / 10000.0 * self.dt,
@@ -556,7 +556,9 @@ impl UniverseCells {
             Some(cell_idx) => {
                 let cell = self.cells.get_mut(&cell_idx).unwrap();
                 if cell.inertia.mass > 0 {
-                    return;
+                    cell.set_static();
+                    cell.inertia.velocity = V2::zero();
+                    self.moving_cells.remove(&cell_idx);
                 }
                 grid.remove(cell.inertia.pos.round(), cell_idx);
                 self.cells.remove(&cell_idx);
