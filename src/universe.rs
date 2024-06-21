@@ -560,13 +560,9 @@ impl UniverseCells {
         match cell_idx {
             Some(cell_idx) => {
                 let cell = self.cells.get_mut(&cell_idx).unwrap();
-                if cell.inertia.mass > 0 {
-                    cell.set_static();
-                    cell.inertia.velocity = V2::zero();
-                    self.moving_cells.remove(&cell_idx);
-                }
-                grid.remove(cell.inertia.pos.round(), cell_idx);
+                grid.remove(ppos, cell_idx);
                 self.cells.remove(&cell_idx);
+                self.moving_cells.remove(&cell_idx);
             }
             None => (),
         }
@@ -672,7 +668,7 @@ impl Universe {
             gravity: V2 { x: 0.0, y: 0.1 },
             dt: 0.01,
 
-            player: Player::new(10, 10),
+            player: Player::new(1, 1),
         }
     }
 }
