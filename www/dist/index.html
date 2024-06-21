@@ -9,21 +9,33 @@
       position: absolute;
       top: 0;
       left: 0;
-      width: 100%;
-      height: 100%;
+
+
+
+      background-image: linear-gradient(45deg, #000 0% 25%, #222 25%, #222 50%, #000 0% 50%, #000 0% 75%, #222 75%, #222 100%);
+      background-size: 60px 60px;
+      color: #fff;
+      height: 95%;
+      width: 95%;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
+      flex-direction: column;
+
+    }
+
+    .container {
+      width: 60%;
+      max-width: 500px;
     }
   </style>
 </head>
 
 <body>
   <noscript>This page contains webassembly and javascript content, please enable javascript in your browser.</noscript>
-  <div>
-    <canvas id="the-canvas"></canvas>
-    <div style="width: 100%; justify-content: left; align-items: left;">
+  <div class="container">
+    <canvas id="the-canvas" style="width:100%"></canvas>
+    <div style="justify-content: left; align-items: left;">
       <div>Ticks: <span id="ticks"></span></div>
       <div>Cells: <span id="cells-count"></span></div>
       <div>Collisions: <span id="collisions-count"></span></div>
@@ -32,8 +44,8 @@
   </div>
   <script src="./bootstrap.js"></script>
 
-  <script src="//cdn.jsdelivr.net/npm/eruda"></script>
-  <script>eruda.init();</script>
+  <!-- <script src="//cdn.jsdelivr.net/npm/eruda"></script>
+  <script>eruda.init();</script> -->
 </body>
 
 </html>
