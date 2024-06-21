@@ -470,12 +470,13 @@ impl UniverseCells {
 
     fn update_pos(&mut self, dt: f64) {
         // some previously static cells may now need to be in moving_cells
-        self.moving_cells.clear();
-        for (_, cell) in &self.cells {
-            if cell.inertia.mass > 0 {
-                self.moving_cells.push(cell.index);
-            }
-        }
+
+        self.moving_cells = self
+            .moving_cells
+            .iter()
+            .filter(|cell_idx| self.cells.get(cell_idx).unwrap().inertia.mass > 0)
+            .map(|x| *x)
+            .collect();
 
         // update grid and positions
         for cell_index in &self.moving_cells {
