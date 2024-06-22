@@ -28,7 +28,11 @@ impl UniverseGrid {
     }
 
     pub fn remove(&mut self, pos: V2i, cell_idx: CellIndex) {
-        assert!(self.is_in_bounds(pos));
+        assert!(
+            self.is_in_bounds(pos),
+            "pos {pos:?} not in bounds, {:?}",
+            self.offset
+        );
         let rpos = pos.minus(self.offset);
         self.grid.remove(
             usize::try_from(rpos.x).unwrap(),

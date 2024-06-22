@@ -462,8 +462,21 @@ impl UniverseCells {
     }
 
     fn update_pos(&mut self, dt: f64) {
-        // some previously static cells may now need to be in moving_cells
+        // update grid and positions
+        for cell_index in &self.moving_cells {
+            let cell = self.cells.get_mut(cell_index).unwrap();
+            let old_pos = cell.inertia.pos;
+            let new_pos = cell.inertia.pos.plus(cell.inertia.velocity.cmul(dt));
 
+            // update grid:
+            self.grids
+                .update_cell_pos(*cell_index, old_pos.round(), new_pos.round());
+            // update position:
+            cell.inertia.pos = new_pos;
+        }
+
+        // Filter out moving cells that have been made static
+        // (TODO: some previously static cells may now need to be in moving_cells?)
         self.moving_cells = self
             .moving_cells
             .iter()
@@ -475,19 +488,6 @@ impl UniverseCells {
             })
             .map(|x| *x)
             .collect();
-
-        // update grid and positions
-        for cell_index in &self.moving_cells {
-            let cell = self.cells.get(cell_index).unwrap();
-            let old_pos = cell.inertia.pos;
-            let new_pos = cell.inertia.pos.plus(cell.inertia.velocity.cmul(dt));
-
-            // update grid:
-            self.grids
-                .update_cell_pos(*cell_index, old_pos.round(), new_pos.round());
-            // update position:
-            self.cells.get_mut(cell_index).unwrap().inertia.pos = new_pos;
-        }
     }
 
     pub fn add_cell(&mut self, cell: Cell) {
@@ -497,7 +497,8 @@ impl UniverseCells {
         let pos = cell.inertia.pos.round();
         let grid_index = self.grids.pos_to_index(pos);
         // don't allow adding too many cells in the same region
-        let get_res = self.grids.get_mut(grid_index).unwrap().get(pos);
+        let grid = self.grids.get_mut(grid_index).unwrap();
+        let get_res = grid.get(pos);
         if get_res.neighbors.len() > 6 {
             return;
         }
@@ -508,11 +509,8 @@ impl UniverseCells {
             index: self.next_cell_index,
         };
         self.cells.insert(index, Cell { index, ..cell });
-        self.grids
-            .get_mut(self.grids.pos_to_index(pos))
-            .unwrap()
-            .put(pos, index);
         self.moving_cells.insert(index);
+        grid.put(pos, index);
     }
 
     fn get_cells(&mut self, center: V2i, radius: usize) -> Vec<CellIndex> {

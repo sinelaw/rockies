@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::hash::Hash;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -13,7 +14,7 @@ struct GridCell<T> {
     neighbors: Vec<T>, // [T; 16],
 }
 
-impl<T: Clone + Default + PartialEq> GridCell<T> {
+impl<T: Clone + Default + PartialEq + Debug> GridCell<T> {
     pub fn new() -> GridCell<T> {
         GridCell {
             version: 0,
@@ -49,11 +50,10 @@ impl<T: Clone + Default + PartialEq> GridCell<T> {
         self.value = Option::Some(value);
     }
 
-    pub fn remove_value(&mut self, version: usize, value: T) {
+    pub fn remove_value(&mut self, version: usize) {
         if version != self.version {
             return;
         }
-        assert!(self.value == Option::Some(value));
         self.value = Option::None;
     }
 
@@ -85,7 +85,7 @@ fn grid_index(x: usize, y: usize, height: usize) -> usize {
 }
 
 /// Data organized in 2d
-impl<T: Default + Copy + Hash + Clone + Eq> Grid<T> {
+impl<T: Default + Copy + Hash + Clone + Debug + Eq> Grid<T> {
     pub fn new(width: usize, height: usize) -> Grid<T> {
         let mut grid: Vec<GridCell<T>> = Vec::new();
         grid.resize(
@@ -125,7 +125,7 @@ impl<T: Default + Copy + Hash + Clone + Eq> Grid<T> {
     pub fn remove(&mut self, x: usize, y: usize, value: T) {
         assert!(x < self.width);
         assert!(y < self.height);
-        self.grid[grid_index(x + 1, y + 1, self.height)].remove_value(self.version, value);
+        self.grid[grid_index(x + 1, y + 1, self.height)].remove_value(self.version);
         for px in 0..3 {
             for py in 0..3 {
                 self.grid[grid_index(x + px, y + py, self.height)]
