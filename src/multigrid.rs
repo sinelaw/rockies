@@ -1,5 +1,7 @@
 use fnv::FnvHashMap;
 
+use std::convert::TryFrom;
+
 use crate::{grid::Grid, v2::V2i};
 
 #[derive(Default, Hash, Eq, Clone, Copy, Debug, PartialEq)]
@@ -28,21 +30,30 @@ impl UniverseGrid {
     pub fn remove(&mut self, pos: V2i, cell_idx: CellIndex) {
         assert!(self.is_in_bounds(pos));
         let rpos = pos.minus(self.offset);
-        self.grid
-            .remove((rpos.x) as usize, (rpos.y) as usize, cell_idx)
+        self.grid.remove(
+            usize::try_from(rpos.x).unwrap(),
+            usize::try_from(rpos.y).unwrap(),
+            cell_idx,
+        )
     }
 
     pub fn put(&mut self, pos: V2i, cell_idx: CellIndex) {
         assert!(self.is_in_bounds(pos));
         let rpos = pos.minus(self.offset);
-        self.grid
-            .put((rpos.x) as usize, (rpos.y) as usize, cell_idx)
+        self.grid.put(
+            usize::try_from(rpos.x).unwrap(),
+            usize::try_from(rpos.y).unwrap(),
+            cell_idx,
+        )
     }
 
     pub fn get(&self, pos: V2i) -> crate::grid::GetResult<CellIndex> {
         assert!(self.is_in_bounds(pos));
         let rpos = pos.minus(self.offset);
-        self.grid.get(rpos.x as usize, rpos.y as usize)
+        self.grid.get(
+            usize::try_from(rpos.x).unwrap(),
+            usize::try_from(rpos.y).unwrap(),
+        )
     }
 
     pub(crate) fn new(grid_index: GridIndex, grid_width: usize, grid_height: usize) -> Self {
@@ -133,8 +144,10 @@ impl MultiGrid {
             .iter()
             .filter(|(grid_index, _)| {
                 let grid_pos = grid_index.to_pos(self.grid_width, self.grid_height);
-                (grid_pos.x - center.x).abs() as usize / self.grid_width > drop_radius
-                    || (grid_pos.y - center.y).abs() as usize / self.grid_height > drop_radius
+                usize::try_from((grid_pos.x - center.x).abs()).unwrap() / self.grid_width
+                    > drop_radius
+                    || usize::try_from((grid_pos.y - center.y).abs()).unwrap() / self.grid_height
+                        > drop_radius
             })
             .map(|(grid_index, _)| *grid_index)
             .collect();
