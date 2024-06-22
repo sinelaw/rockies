@@ -1,5 +1,3 @@
-use std::iter::FromIterator;
-
 use crate::assets;
 use crate::color::Color;
 use crate::inertia::Inertia;
@@ -13,6 +11,7 @@ extern crate web_sys;
 const MAX_CELLS: usize = 4096 * 16;
 
 // A macro to provide `println!(..)`-style syntax for `console.log` logging.
+#[allow(unused_macros)]
 macro_rules! log {
     ( $( $t:tt )* ) => {
         // web_sys::console::log_1(&format!( $( $t )* ).into())
@@ -354,12 +353,6 @@ impl UniverseCells {
         }
     }
 
-    pub fn get_or_load(&mut self, pos: V2i) -> &Cell {
-        let grid_index = self.grids.pos_to_index(pos);
-        self.ensure_grid(grid_index);
-        return self.get(pos).unwrap();
-    }
-
     fn calc_forces(&mut self, gravity: V2) {
         for cell_idx in self.moving_cells.iter() {
             let cell = &mut self.cells.get_mut(&cell_idx).unwrap();
@@ -559,7 +552,6 @@ impl UniverseCells {
         let cell_idx = *grid.get(ppos).value;
         match cell_idx {
             Some(cell_idx) => {
-                let cell = self.cells.get_mut(&cell_idx).unwrap();
                 grid.remove(ppos, cell_idx);
                 self.cells.remove(&cell_idx);
                 self.moving_cells.remove(&cell_idx);

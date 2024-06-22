@@ -208,7 +208,6 @@ impl Game {
         self.universe.cells.unstick_cells(pos, 3);
 
         // add a new cell
-        let r = (x % 17) as f64 / 17.0 - 1.0;
         self.universe.cells.add_cell(Cell {
             index: CellIndex { index: 0 },
             color: Color {

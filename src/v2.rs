@@ -35,10 +35,6 @@ impl V2i {
             y: self.y - offset.y,
         }
     }
-
-    pub fn zero() -> V2i {
-        V2i { x: 0, y: 0 }
-    }
 }
 
 fn round(x: f64) -> i32 {

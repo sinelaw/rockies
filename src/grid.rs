@@ -49,11 +49,11 @@ impl<T: Clone + Default + PartialEq> GridCell<T> {
         self.value = Option::Some(value);
     }
 
-    pub fn remove_value(&mut self, version: usize,  value: T) {
+    pub fn remove_value(&mut self, version: usize, value: T) {
         if version != self.version {
             return;
         }
-
+        assert!(self.value == Option::Some(value));
         self.value = Option::None;
     }
 
@@ -66,7 +66,6 @@ impl<T: Clone + Default + PartialEq> GridCell<T> {
         if version != self.version {
             return;
         }
-
         self.neighbors.retain(|x| *x != neighbor);
     }
 }
