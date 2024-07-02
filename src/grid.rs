@@ -3,14 +3,14 @@ use std::hash::Hash;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GetResult<'a, T> {
-    pub value: &'a Option<T>,
+    pub value: &'a [T],
     pub neighbors: &'a [T],
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct GridCell<T> {
     version: usize,
-    value: Option<T>,
+    value: Vec<T>,
     neighbors: Vec<T>, // [T; 16],
 }
 
@@ -18,7 +18,7 @@ impl<T: Clone + Default + PartialEq + Debug> GridCell<T> {
     pub fn new() -> GridCell<T> {
         GridCell {
             version: 0,
-            value: Option::None,
+            value: Vec::with_capacity(4),
             neighbors: Vec::with_capacity(16), //[T::default(); 16],
         }
     }
@@ -31,7 +31,7 @@ impl<T: Clone + Default + PartialEq + Debug> GridCell<T> {
             }
         } else {
             GetResult {
-                value: &Option::None,
+                value: &self.value[0..0],
                 neighbors: &self.neighbors[0..0],
             }
         }
@@ -40,21 +40,21 @@ impl<T: Clone + Default + PartialEq + Debug> GridCell<T> {
     fn ensure_version(&mut self, version: usize) {
         if version != self.version {
             self.version = version;
-            self.value = Option::None;
+            self.value.clear();
             self.neighbors.clear();
         }
     }
 
     pub fn set_value(&mut self, version: usize, value: T) {
         self.ensure_version(version);
-        self.value = Option::Some(value);
+        self.value.push(value);
     }
 
-    pub fn remove_value(&mut self, version: usize) {
+    pub fn remove_value(&mut self, version: usize, value: T) {
         if version != self.version {
             return;
         }
-        self.value = Option::None;
+        self.value.retain(|x| *x != value);
     }
 
     pub fn add_neighbor(&mut self, version: usize, neighbor: T) {
@@ -125,7 +125,7 @@ impl<T: Default + Copy + Hash + Clone + Debug + Eq> Grid<T> {
     pub fn remove(&mut self, x: usize, y: usize, value: T) {
         assert!(x < self.width);
         assert!(y < self.height);
-        self.grid[grid_index(x + 1, y + 1, self.height)].remove_value(self.version);
+        self.grid[grid_index(x + 1, y + 1, self.height)].remove_value(self.version, value);
         for px in 0..3 {
             for py in 0..3 {
                 self.grid[grid_index(x + px, y + py, self.height)]
@@ -151,13 +151,13 @@ mod tests {
         grid.put(0, 0, 'a');
         let res = grid.get(0, 0);
         assert_eq!(res.neighbors.len(), 1);
-        assert_eq!(res.value, &Some('a'));
+        assert_eq!(res.value, &['a']);
         assert_eq!(res.neighbors, &['a']);
 
         grid.remove(0, 0, 'a');
         let res = grid.get(0, 0);
         assert_eq!(res.neighbors.len(), 0);
-        assert_eq!(res.value, &None);
+        assert_eq!(res.value, &[]);
     }
 
     #[test]
@@ -169,13 +169,13 @@ mod tests {
         let res = grid.get(0, 0);
 
         assert_eq!(res.neighbors.len(), 2);
-        assert_eq!(res.value, &Some('a'));
+        assert_eq!(res.value, &['a']);
         assert_eq!(res.neighbors, &['a', 'b']);
 
         grid.remove(0, 0, 'a');
         let res = grid.get(0, 0);
         assert_eq!(res.neighbors.len(), 1);
-        assert_eq!(res.value, &None);
+        assert_eq!(res.value, &[]);
         assert_eq!(res.neighbors, &['b']);
     }
 
@@ -188,13 +188,13 @@ mod tests {
         {
             let res = grid.get(0, 0);
             assert_eq!(res.neighbors.len(), 1);
-            assert_eq!(res.value, &Some('a'));
+            assert_eq!(res.value, &['a']);
             assert_eq!(res.neighbors, &['a']);
         }
         {
             let res = grid.get(4, 0);
             assert_eq!(res.neighbors.len(), 1);
-            assert_eq!(res.value, &Some('b'));
+            assert_eq!(res.value, &['b']);
             assert_eq!(res.neighbors, &['b']);
         }
     }

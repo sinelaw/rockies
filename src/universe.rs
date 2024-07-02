@@ -347,10 +347,11 @@ impl UniverseCells {
         let grid_index = self.grids.pos_to_index(pos);
         self.ensure_grid(grid_index);
         let get_res = self.grids.get(grid_index).unwrap().get(pos);
-        match get_res.value {
-            Some(cell_idx) => self.cells.get(&cell_idx),
-            None => None,
+        for cell_idx in get_res.value {
+            // if there are multiple cells inside, return one of them:
+            return self.cells.get(&cell_idx);
         }
+        Option::None
     }
 
     fn calc_forces(&mut self, gravity: V2) {
@@ -546,15 +547,24 @@ impl UniverseCells {
     pub fn remove_cell(&mut self, ppos: V2i) {
         let grid_index = self.grids.pos_to_index(ppos);
         self.ensure_grid(grid_index);
-        let grid = self.grids.get_mut(grid_index).unwrap();
-        let cell_idx = *grid.get(ppos).value;
-        match cell_idx {
-            Some(cell_idx) => {
-                grid.remove(ppos, cell_idx);
-                self.cells.remove(&cell_idx);
-                self.moving_cells.remove(&cell_idx);
-            }
-            None => (),
+
+        let values: Vec<CellIndex> = self
+            .grids
+            .get(grid_index)
+            .unwrap()
+            .get(ppos)
+            .value
+            .iter()
+            .map(|x| *x)
+            .collect();
+
+        for cell_idx in values {
+            self.cells.remove(&cell_idx);
+            self.moving_cells.remove(&cell_idx);
+            self.grids
+                .get_mut(grid_index)
+                .unwrap()
+                .remove(ppos, cell_idx);
         }
     }
 
@@ -578,16 +588,12 @@ impl UniverseCells {
             let grid_origin = grid_index.to_pos(grid.width, grid.height);
             for x in 0..grid.width {
                 for y in 0..grid.height {
-                    let maybe_cell = grid
+                    let values = grid
                         .get(V2i::new(x as i32, y as i32).plus(grid_origin))
-                        .value
-                        .clone();
-                    match maybe_cell {
-                        Some(cell_index) => {
-                            self.cells.remove(&cell_index);
-                            removed_cells += 1;
-                        }
-                        None => (),
+                        .value;
+                    for cell_index in values {
+                        self.cells.remove(&cell_index);
+                        removed_cells += 1;
                     }
                 }
             }
