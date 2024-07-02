@@ -38,7 +38,7 @@ impl Game {
             pixels: vec![0xFFFFFF; (width * height) as usize],
             universe: Universe::new(width, height),
             keys: HashSet::new(),
-            shoot_color: Color::hsv(30.0, 1.0, 1.0),
+            shoot_color: Color::hsv(90.0, 1.0, 1.0),
         }
     }
 
