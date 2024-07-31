@@ -3,7 +3,10 @@ use crate::color::Color;
 use crate::inertia::Inertia;
 use crate::multigrid::{CellIndex, GridIndex, MultiGrid, UniverseGrid};
 use crate::v2::{V2i, V2};
+
 use fnv::{FnvHashMap, FnvHashSet};
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 use wasm_bindgen::prelude::*;
 
 extern crate web_sys;
@@ -265,6 +268,8 @@ pub struct UniverseCells {
     // transient data:
     collisions_list: Vec<(CellIndex, CellIndex)>,
     collisions_map: FnvHashSet<(CellIndex, CellIndex)>,
+
+    seed: i32,
 }
 
 impl UniverseCells {
@@ -279,6 +284,8 @@ impl UniverseCells {
 
             collisions_list: Vec::new(),
             collisions_map: FnvHashSet::default(),
+
+            seed: 0,
         }
     }
 
@@ -308,10 +315,26 @@ impl UniverseCells {
         }
     }
 
+    fn is_solid_ground(seed: i32, pos: V2i, grid_width: usize, grid_height: usize) -> bool {
+        let mut rng = StdRng::seed_from_u64(seed as u64);
+
+        // Check for caverns
+        let cavern_radius = rng.gen_range(5..grid_width/2); // Adjust for cavern size
+        let cavern_center = V2i::new(
+            rng.gen_range(0..grid_width) as i32,
+            rng.gen_range(0..grid_height) as i32,
+        );
+        let distance_to_cavern = pos.minus(cavern_center).to_v2();
+        // return if we're in a cavern = false
+        distance_to_cavern.magnitude() > (cavern_radius as f64)
+    }
+
     fn create_wall_cells(&mut self, grid_index: GridIndex) {
         let width = self.grids.grid_width;
         let height = self.grids.grid_height;
         let base_pos = grid_index.to_pos(width, height);
+        let local_seed =
+            self.seed + grid_index.grid_offset.x * (height as i32) + grid_index.grid_offset.y;
         if grid_index.grid_offset.y == 0 {
             // ground level grid
             for x in (width / 4)..(3 * width / 4) {
@@ -334,10 +357,17 @@ impl UniverseCells {
         } else if grid_index.grid_offset.y > 0 {
             for x in 0..width {
                 for y in 0..height {
-                    self.add_cell(UniverseCells::wall_cell(
-                        base_pos.plus(V2i::new(x as i32, y as i32)),
-                        Color::hsv(30.0, 1.0, 0.5), // brown
-                    ));
+                    if Self::is_solid_ground(
+                        local_seed,
+                        V2i::new(x as i32, y as i32),
+                        width,
+                        height,
+                    ) {
+                        self.add_cell(UniverseCells::wall_cell(
+                            base_pos.plus(V2i::new(x as i32, y as i32)),
+                            Color::hsv(30.0, 1.0, 0.5), // brown
+                        ));
+                    }
                 }
             }
         }

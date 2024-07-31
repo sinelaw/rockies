@@ -85,7 +85,17 @@ impl Game {
                             cell.color.to_u32()
                         }
                     }
-                    None => (),
+                    None => {
+                        let depth = pos.y - h;
+                        self.pixels[pixel_idx] = if depth >= 0 {
+                            // underground
+                            let value = (255.0 / ((depth+2) as f64).powf(0.5)) as u32;
+                            value + (value << 8) + (value << 16)
+                        } else {
+                            // above ground
+                            0xFFFFFF
+                        }
+                    }
                 }
             }
         }
