@@ -255,7 +255,7 @@ fn clamp_velocity(v: V2) -> V2 {
 }
 
 fn velocity_threshold(dt: f64) -> f64 {
-    dt / 10.0
+    dt / 5.0
 }
 
 pub struct UniverseCells {
@@ -456,8 +456,7 @@ impl UniverseCells {
             let mass2 = inertia2.mass;
             // static cell is involved, make them both static
             if ((inertia1.mass == 0) || (inertia2.mass == 0))
-                && (inertia1.velocity.magnitude_sqr() < velocity_threshold(dt))
-                && (inertia2.velocity.magnitude_sqr() < velocity_threshold(dt))
+                && (low_velocity_collision(inertia1, inertia2, dt))
             {
                 if mass1 > 0 {
                     self.cells.get_mut(cell1_idx).unwrap().set_static();
@@ -486,9 +485,10 @@ impl UniverseCells {
         cell_index: &CellIndex,
         new_inertia: Inertia,
     ) {
-        let cell1 = cells.get_mut(cell_index).unwrap();
-        cell1.inertia = new_inertia;
-        cell1.inertia.collision_stats += 1;
+        let cell = cells.get_mut(cell_index).unwrap();
+        cell.inertia = new_inertia;
+        cell.inertia.collision_stats += 1;
+        log!("index: {cell_index:?}, inertia: {new_inertia:?}");
     }
 
     fn update_pos(&mut self, dt: f64) {
@@ -633,6 +633,11 @@ impl UniverseCells {
             self.grids.drop_grid(grid_index);
         }
     }
+}
+
+fn low_velocity_collision(inertia1: &Inertia, inertia2: &Inertia, dt: f64) -> bool {
+    (inertia1.velocity.magnitude_sqr() < velocity_threshold(dt))
+        && (inertia2.velocity.magnitude_sqr() < velocity_threshold(dt))
 }
 
 pub struct Universe {
