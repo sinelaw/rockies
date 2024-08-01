@@ -10,6 +10,9 @@ mod utils;
 mod v2;
 use color::Color;
 
+use noise::Vector2;
+use noise::{core::perlin::perlin_2d, permutationtable::PermutationTable};
+
 use inertia::Inertia;
 use multigrid::CellIndex;
 use universe::{Cell, Stats, Universe};
@@ -57,6 +60,7 @@ impl Game {
     }
 
     pub fn render(&mut self) -> () {
+        let hasher = PermutationTable::new(1);
         self.pixels.fill(0xFFFFFF);
 
         let w = self.width as i32;
@@ -87,13 +91,24 @@ impl Game {
                     }
                     None => {
                         let depth = pos.y - h;
+
                         self.pixels[pixel_idx] = if depth >= 0 {
-                            // underground
-                            let value = (255.0 / ((depth+2) as f64).powf(0.5)) as u32;
+                            // underground - deeper is darker
+                            let value = (255.0 / ((depth + 2) as f64).powf(0.5)) as u32;
                             value + (value << 8) + (value << 16)
                         } else {
-                            // above ground
-                            0xFFFFFF
+                            let altitude = -depth as f64;
+                            // generate clouds
+                            let posv = pos.to_v2().plus(V2::new(0.5, 0.7)).cmul(0.01);
+                            let noise2 =
+                                perlin_2d(Vector2::new(posv.y * 10.0, posv.x * 10.0), &hasher);
+                            let noise = perlin_2d(Vector2::new(posv.x, posv.y), &hasher);
+                            if (0.2 + 0.9 / (altitude / 10.0)) < noise2 * noise {
+                                0xFFFFFF
+                            } else {
+                                // above ground - sky
+                                0xCCCCFF
+                            }
                         }
                     }
                 }
