@@ -612,6 +612,7 @@ impl UniverseCells {
                         .value;
                     for cell_index in values {
                         self.cells.remove(&cell_index);
+                        self.moving_cells.remove(&cell_index);
                         removed_cells += 1;
                     }
                 }
