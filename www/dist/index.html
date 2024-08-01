@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>ROCKIES!! 🐹</title>
+  <style>
+    .checkerboard {
+      background-color: #404040;
+      /* Base color */
+      background-image: linear-gradient(45deg, #555 25%, transparent 25%),
+        linear-gradient(-45deg, #555 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #555 75%),
+        linear-gradient(-45deg, transparent 75%, #555 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+
+    }
+
+    body {
+      position: absolute;
+      top: 0;
+      left: 0;
+      color: #fff;
+      height: 95%;
+      width: 95%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      font-family: monospace;
+
+    }
+
+    .container {
+      width: 60%;
+      max-width: 500px;
+    }
+  </style>
+</head>
+
+<body class="checkerboard">
+  <noscript>This page contains webassembly and javascript content, please enable javascript in your browser.</noscript>
+  <div class="container">
+    <canvas id="the-canvas" style="width:100%"></canvas>
+    <div style="justify-content: left; align-items: left;">
+      <div>ROCKIES - <a href="https://github.com/sinelaw/rockies/">github.com/sinelaw/rockies</a></div>
+      <div><strong>Keys: wasd - move, space - shoot, k - dig, 0-9 - select color</strong></div>
+      <div>Try: s + k (dig down), a + k (dig left), w (fly)</div>
+      <div>Ticks: <span id="ticks"></span> Cells: <span id="cells-count"></span> Collisions: <span
+          id="collisions-count"></span></div>
+      <div>Collision pairs tested: <span id="collision-pairs-tested"></span></div>
+    </div>
+  </div>
+  <script src="./bootstrap.js"></script>
+
+  <!-- <script src="//cdn.jsdelivr.net/npm/eruda"></script>
+  <script>eruda.init();</script> -->
+</body>
+
+</html>
