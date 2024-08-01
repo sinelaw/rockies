@@ -268,7 +268,12 @@ impl fmt::Display for Game {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for line in self.pixels.as_slice().chunks(self.width as usize) {
             for &pixel in line {
-                let symbol = if pixel == 0xFFFFFF { '◻' } else { '◼' };
+                let color = ansi_term::Color::RGB(
+                    ((pixel >> 16) & 0xFF) as u8,
+                    ((pixel >> 8) & 0xFF) as u8,
+                    (pixel & 0xFF) as u8,
+                );
+                let symbol = ansi_term::Style::new().fg(color).paint("█");
                 write!(f, "{}", symbol)?;
             }
             write!(f, "\n")?;

@@ -13,6 +13,7 @@ fn main() -> () {
         for _ in 0..100 {
             game.tick();
             game.stats();
+            print!("{}",game.text_render());
         }
         game.key_up(' ');
         game.key_down('d');
@@ -20,6 +21,7 @@ fn main() -> () {
         for _ in 0..10 {
             game.tick();
             game.stats();
+            print!("{}",game.text_render());
         }
         game.key_up('d');
         game.key_up('k');

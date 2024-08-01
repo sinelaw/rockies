@@ -136,10 +136,12 @@ impl MultiGrid {
 
     pub fn update_cell_pos(&mut self, cell_idx: CellIndex, old_pos: V2i, new_pos: V2i) {
         // update grid:
-        self.get_mut(self.pos_to_index(old_pos))
-            .map(|grid| grid.remove(old_pos, cell_idx));
-        self.get_mut(self.pos_to_index(new_pos))
-            .map(|grid| grid.put(new_pos, cell_idx));
+        if old_pos != new_pos {
+            self.get_mut(self.pos_to_index(old_pos))
+                .map(|grid| grid.remove(old_pos, cell_idx));
+            self.get_mut(self.pos_to_index(new_pos))
+                .map(|grid| grid.put(new_pos, cell_idx));
+        }
     }
 
     pub fn get_far_grids(&mut self, center: V2i, drop_radius: usize) -> Vec<GridIndex> {
