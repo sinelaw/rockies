@@ -323,7 +323,7 @@ impl UniverseCells {
 
         // perlin_2d returns a value in (-1..1)
         let local_seed = perlin_2d(Vector2::new(posv.x, posv.y), &hasher).abs()
-            * perlin_2d(Vector2::new(posv.y, posv.x), &hasher).abs();
+            * perlin_2d(Vector2::new(posv.y*0.3, posv.x*0.4), &hasher).abs();
         local_seed
     }
 
