@@ -323,7 +323,7 @@ impl UniverseCells {
 
         // perlin_2d returns a value in (-1..1)
         let local_seed = perlin_2d(Vector2::new(posv.x, posv.y), &hasher).abs()
-            * perlin_2d(Vector2::new(posv.y*0.3, posv.x*0.4), &hasher).abs();
+            * perlin_2d(Vector2::new(posv.y * 0.3, posv.x * 0.4), &hasher).abs();
         local_seed
     }
 
@@ -340,7 +340,7 @@ impl UniverseCells {
                 if above_ground {
                     // generate "mountains"
                     let val = self.generated_point(V2i::new(pos.x, 0));
-                    
+
                     if val * 100.0 > altitude as f64 {
                         self.add_cell(UniverseCells::wall_cell(
                             pos,
@@ -351,7 +351,7 @@ impl UniverseCells {
                     // below ground
                     let val = self.generated_point(pos);
                     let depth = -altitude as f64;
-                    if val < 0.02 + 0.5/(depth*0.1) {
+                    if val < 0.02 + 0.5 / (depth * 0.1) {
                         self.add_cell(UniverseCells::wall_cell(
                             pos,
                             Color::hsv(30.0, 1.0, (1.0 - val) * 0.5), // brown
@@ -476,9 +476,19 @@ impl UniverseCells {
             self.grids
                 .update_cell_pos(*cell2_idx, inertia2.pos.round(), new_inertia2.pos.round());
 
-            self.cells.get_mut(cell1_idx).unwrap().inertia = new_inertia1;
-            self.cells.get_mut(cell2_idx).unwrap().inertia = new_inertia2;
+            Self::update_cell_collision(&mut self.cells, cell1_idx, new_inertia1);
+            Self::update_cell_collision(&mut self.cells, cell2_idx, new_inertia2);
         }
+    }
+
+    fn update_cell_collision(
+        cells: &mut FnvHashMap<CellIndex, Cell>,
+        cell_index: &CellIndex,
+        new_inertia: Inertia,
+    ) {
+        let cell1 = cells.get_mut(cell_index).unwrap();
+        cell1.inertia = new_inertia;
+        cell1.inertia.collision_stats += 1;
     }
 
     fn update_pos(&mut self, dt: f64) {
