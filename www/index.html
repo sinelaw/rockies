@@ -5,15 +5,22 @@
   <meta charset="utf-8">
   <title>ROCKIES!! 🐹</title>
   <style>
+    .checkerboard {
+      background-color: #404040;
+      /* Base color */
+      background-image: linear-gradient(45deg, #555 25%, transparent 25%),
+        linear-gradient(-45deg, #555 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #555 75%),
+        linear-gradient(-45deg, transparent 75%, #555 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+
+    }
+
     body {
       position: absolute;
       top: 0;
       left: 0;
-
-
-
-      background-image: linear-gradient(45deg, #000 0% 25%, #222 25%, #222 50%, #000 0% 50%, #000 0% 75%, #222 75%, #222 100%);
-      background-size: 60px 60px;
       color: #fff;
       height: 95%;
       width: 95%;
@@ -32,7 +39,7 @@
   </style>
 </head>
 
-<body>
+<body class="checkerboard">
   <noscript>This page contains webassembly and javascript content, please enable javascript in your browser.</noscript>
   <div class="container">
     <canvas id="the-canvas" style="width:100%"></canvas>
