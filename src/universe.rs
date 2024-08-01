@@ -4,9 +4,10 @@ use crate::inertia::Inertia;
 use crate::multigrid::{CellIndex, GridIndex, MultiGrid, UniverseGrid};
 use crate::v2::{V2i, V2};
 
+use noise::Vector2;
+use noise::{core::perlin::perlin_2d, permutationtable::PermutationTable};
+
 use fnv::{FnvHashMap, FnvHashSet};
-use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
 use wasm_bindgen::prelude::*;
 
 extern crate web_sys;
@@ -315,57 +316,45 @@ impl UniverseCells {
         }
     }
 
-    fn is_solid_ground(seed: i32, pos: V2i, grid_width: usize, grid_height: usize) -> bool {
-        let mut rng = StdRng::seed_from_u64(seed as u64);
-
+    fn generated_point(&self, pos: V2i) -> f64 {
+        let hasher = PermutationTable::new(self.seed as u32);
         // Check for caverns
-        let cavern_radius = rng.gen_range(5..grid_width/2); // Adjust for cavern size
-        let cavern_center = V2i::new(
-            rng.gen_range(0..grid_width) as i32,
-            rng.gen_range(0..grid_height) as i32,
-        );
-        let distance_to_cavern = pos.minus(cavern_center).to_v2();
-        // return if we're in a cavern = false
-        distance_to_cavern.magnitude() > (cavern_radius as f64)
+        let posv = pos.to_v2().cmul(0.01);
+
+        // perlin_2d returns a value in (-1..1)
+        let local_seed = perlin_2d(Vector2::new(posv.x, posv.y), &hasher).abs()
+            * perlin_2d(Vector2::new(posv.y, posv.x), &hasher).abs();
+        local_seed
     }
 
     fn create_wall_cells(&mut self, grid_index: GridIndex) {
         let width = self.grids.grid_width;
         let height = self.grids.grid_height;
         let base_pos = grid_index.to_pos(width, height);
-        let local_seed =
-            self.seed + grid_index.grid_offset.x * (height as i32) + grid_index.grid_offset.y;
-        if grid_index.grid_offset.y == 0 {
-            // ground level grid
-            for x in (width / 4)..(3 * width / 4) {
-                self.add_cell(UniverseCells::wall_cell(
-                    base_pos.plus(V2i::new(x as i32, (height / 2) as i32)),
-                    Color::rgb(255, 0, 0),
-                ));
-            }
-            for x in 0..width {
-                self.add_cell(UniverseCells::wall_cell(
-                    base_pos.plus(V2i::new(x as i32, 0)),
-                    Color::rgb(255, 0, 0),
-                ));
 
-                self.add_cell(UniverseCells::wall_cell(
-                    base_pos.plus(V2i::new(x as i32, height as i32 - 1)),
-                    Color::hsv(130.0, 1.0, 0.5), // green
-                ));
-            }
-        } else if grid_index.grid_offset.y > 0 {
-            for x in 0..width {
-                for y in 0..height {
-                    if Self::is_solid_ground(
-                        local_seed,
-                        V2i::new(x as i32, y as i32),
-                        width,
-                        height,
-                    ) {
+        for x in 0..width {
+            for y in 0..height {
+                let pos = V2i::new(x as i32, y as i32).plus(base_pos);
+                let altitude = height as i32 - pos.y;
+                let above_ground = altitude > 0;
+                if above_ground {
+                    // generate "mountains"
+                    let val = self.generated_point(V2i::new(pos.x, 0));
+                    
+                    if val * 100.0 > altitude as f64 {
                         self.add_cell(UniverseCells::wall_cell(
-                            base_pos.plus(V2i::new(x as i32, y as i32)),
+                            pos,
                             Color::hsv(30.0, 1.0, 0.5), // brown
+                        ));
+                    }
+                } else {
+                    // below ground
+                    let val = self.generated_point(pos);
+                    let depth = -altitude as f64;
+                    if val < 0.02 + 0.5/(depth*0.1) {
+                        self.add_cell(UniverseCells::wall_cell(
+                            pos,
+                            Color::hsv(30.0, 1.0, (1.0 - val) * 0.5), // brown
                         ));
                     }
                 }
