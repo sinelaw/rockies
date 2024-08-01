@@ -13,5 +13,6 @@ module.exports = {
   ],
   experiments: {
     asyncWebAssembly: true,
-  }
+  },
+  devtool: 'inline-source-map',
 };
