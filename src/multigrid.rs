@@ -162,7 +162,7 @@ impl MultiGrid {
     }
 
     pub fn drop_grid(&mut self, grid_index: GridIndex) {
-        println!("dropping grid: {grid_index:?}");
+        //println!("dropping grid: {grid_index:?}");
         self.remove(grid_index);
     }
 }

@@ -137,11 +137,13 @@ impl Game {
     pub fn process_keys(&mut self) {
         let mut xs = Vec::new();
         let mut ys = Vec::new();
-        for key in self.keys.iter() {
+        for raw_key in self.keys.iter() {
+            let key = raw_key.to_ascii_lowercase();
+
             match key {
                 c @ '0'..='9' => {
                     self.shoot_color =
-                        Color::hsv((*c as u8 - '0' as u8) as f64 / 10.0 * 360.0, 1.0, 1.0);
+                        Color::hsv((c as u8 - '0' as u8) as f64 / 10.0 * 360.0, 1.0, 1.0);
                 }
                 'a' => {
                     self.universe.player.move_left();
@@ -183,7 +185,8 @@ impl Game {
                 _ => (),
             }
         }
-        if self.keys.contains(&'k') {
+        // shift is down => dig mode
+        if self.keys.iter().any(|k: &char| k.is_uppercase()) {
             let pos: V2i = self.universe.player.inertia.pos.round();
             for x in 0..self.universe.player.w {
                 for y in 0..self.universe.player.h {
@@ -266,7 +269,6 @@ impl Game {
 
 impl fmt::Display for Game {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        
         for line in self.pixels.as_slice().chunks(self.width as usize) {
             for &pixel in line {
                 let color = ansi_term::Color::RGB(
