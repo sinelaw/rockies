@@ -10,6 +10,7 @@ impl Color {
         (self.r as u32 * 256 * 256) + (self.g as u32 * 256) + self.b as u32
     }
 
+    #[allow(dead_code)]
     pub fn rgb(r: u8, g: u8, b: u8) -> Color {
         Color { r, g, b }
     }
