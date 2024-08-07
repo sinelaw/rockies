@@ -266,6 +266,7 @@ impl Game {
 
 impl fmt::Display for Game {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        
         for line in self.pixels.as_slice().chunks(self.width as usize) {
             for &pixel in line {
                 let color = ansi_term::Color::RGB(
@@ -276,7 +277,7 @@ impl fmt::Display for Game {
                 let symbol = ansi_term::Style::new().fg(color).paint("█");
                 write!(f, "{}", symbol)?;
             }
-            write!(f, "\n")?;
+            write!(f, "\n\r")?;
         }
 
         return Ok(());
