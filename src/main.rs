@@ -1,12 +1,15 @@
 use std::{
     io::{stdin, stdout, Write},
+    os::fd::AsRawFd,
     thread::sleep,
     time::{Duration, Instant},
 };
 
 mod console;
 
+use ansi_term::{ANSIGenericString, ANSIString, ANSIStrings};
 use fnv::FnvHashSet;
+use libc::{ioctl, winsize, TIOCGWINSZ};
 use rockies::Game;
 
 static FRAMES_MS: u128 = 16;
@@ -17,8 +20,9 @@ fn main() -> () {
     let mut stdin_handle = stdin();
     let termios = console::prepare_stdin(&stdin_handle);
     let mut out = stdout();
+    console::clear(&mut out);
 
-    let mut game = Game::new(64, 64);
+    let mut game = Game::new(80, 50);
 
     let mut last_frame_time = Instant::now();
     let mut last_tick_time = Instant::now();
@@ -26,6 +30,7 @@ fn main() -> () {
 
     let mut keys: FnvHashSet<String> = FnvHashSet::default();
 
+    let wsize = get_terminal_size(&out);
     loop {
         // throttle ticks
         let since_last_tick = last_tick_time.elapsed().as_millis();
@@ -39,9 +44,7 @@ fn main() -> () {
         // draw frames / interact only if enough time passed
         if FRAMES_MS < start.duration_since(last_frame_time).as_millis() {
             last_frame_time = start;
-            console::clear(&mut out);
-            out.write_all(game.text_render().as_bytes()).unwrap();
-            out.flush().unwrap();
+            text_render(&mut out, &game, wsize);
         }
 
         // keyboard events are not really available in terminal console. We only
@@ -62,6 +65,18 @@ fn main() -> () {
     }
 
     console::unprepare_stdin(&stdin_handle, termios);
+}
+
+fn get_terminal_size(out: &std::io::Stdout) -> winsize {
+    let mut w: winsize = winsize {
+        ws_row: 0,
+        ws_col: 0,
+        ws_xpixel: 0,
+        ws_ypixel: 0,
+    };
+    let res = unsafe { ioctl(out.as_raw_fd(), TIOCGWINSZ, &mut w) };
+    assert!(res == 0, "ioctl failed");
+    w
 }
 
 fn process_keyboard(
@@ -125,4 +140,38 @@ fn process_keyboard(
     //print!("keys: {:?}, next_keys: {:?}\n\r", keys, next_keys);
     keys.clone_from(&mut next_keys);
     true
+}
+
+fn text_render(out: &mut std::io::Stdout, game: &Game, wsize: winsize) -> () {
+    let term_width = usize::from(wsize.ws_col);
+    let padding = if term_width > game.width() {
+        (term_width - game.width()) / 2
+    } else {
+        0
+    };
+
+    let mut frame: Vec<ANSIGenericString<str>> = Vec::default();
+
+    for line in game.pixels_vec().chunks(game.width() as usize) {
+        for _ in 0..padding {
+            frame.push(" ".into());
+        }
+        for &pixel in line {
+            let color = ansi_term::Color::RGB(
+                ((pixel >> 16) & 0xFF) as u8,
+                ((pixel >> 8) & 0xFF) as u8,
+                (pixel & 0xFF) as u8,
+            );
+            let symbol = ansi_term::Style::new().fg(color).paint("█");
+            frame.push(symbol);
+        }
+        frame.push("\n".into());
+        frame.push("\r".into());
+    }
+
+    let output = ANSIStrings(frame.as_slice());
+
+    console::home(out);
+    write!(out, "{}", output).unwrap();
+    out.flush().unwrap();
 }

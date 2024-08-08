@@ -74,3 +74,13 @@ pub(crate) fn clear(f: &mut impl Write) {
     )
     .unwrap();
 }
+
+pub(crate) fn home(f: &mut impl Write) {
+    write!(
+        f,
+        "{}",
+        // Go to position 0,0
+        ansi_control_codes::control_sequences::CUP(0.into(), 0.into())
+    )
+    .unwrap();
+}
