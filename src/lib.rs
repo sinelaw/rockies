@@ -26,7 +26,7 @@ pub struct Game {
     height: usize,
     pixels: Vec<u32>,
     universe: Universe,
-    keys: HashSet<char>,
+    keys: HashSet<String>,
     shoot_color: Color,
 }
 
@@ -126,20 +126,31 @@ impl Game {
         self.to_string()
     }
 
-    pub fn key_down(&mut self, key: char) {
-        self.keys.insert(key);
+    pub fn key_down(&mut self, key: String) {
+        self.keys.insert(key.to_ascii_lowercase());
     }
 
-    pub fn key_up(&mut self, key: char) {
-        self.keys.remove(&key);
+    pub fn key_up(&mut self, key: String) {
+        self.keys.remove(&key.to_ascii_lowercase());
+    }
+
+    pub fn unfocus(&mut self) {
+        self.keys.clear();
     }
 
     pub fn process_keys(&mut self) {
         let mut xs = Vec::new();
         let mut ys = Vec::new();
-        for raw_key in self.keys.iter() {
-            let key = raw_key.to_ascii_lowercase();
 
+        // shift is down => dig mode
+        let is_dig_mode = self.keys.iter().any(|k| k == "shift");
+
+        for raw_key in self.keys.iter() {
+            if raw_key.len() > 1 {
+                continue;
+            }
+            // single-char keys:
+            let key = raw_key.chars().nth(0).unwrap();
             match key {
                 c @ '0'..='9' => {
                     self.shoot_color =
@@ -185,8 +196,7 @@ impl Game {
                 _ => (),
             }
         }
-        // shift is down => dig mode
-        if self.keys.iter().any(|k: &char| k.is_uppercase()) {
+        if is_dig_mode {
             let pos: V2i = self.universe.player.inertia.pos.round();
             for x in 0..self.universe.player.w {
                 for y in 0..self.universe.player.h {

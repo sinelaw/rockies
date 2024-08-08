@@ -21,18 +21,6 @@ canvas.width = (CELL_SIZE) * width + 1;
 
 const ctx = canvas.getContext('2d');
 
-
-const heldKeys = new Set();
-
-
-document.onkeydown = (e) => {
-    game.key_down(e.key);
-};
-document.onkeyup = (e) => {
-    game.key_up(e.key);
-};
-
-
 const renderLoop = () => {
 
     game.tick();
@@ -99,4 +87,20 @@ canvas.ontouchmove = (e) => {
     let x = e.touches[0].clientX - canvas.offsetLeft;
     let y = e.touches[0].clientY - canvas.offsetTop;
     game.click(x / (CELL_SIZE + 1), y / (CELL_SIZE + 1));
+};
+
+canvas.addEventListener('blur', function (event) {
+    game.unfocus();
+});
+
+window.addEventListener('blur', function (event) {
+    game.unfocus();
+});
+
+document.onkeydown = (e) => {
+    game.key_down(e.key);
+};
+
+document.onkeyup = (e) => {
+    game.key_up(e.key);
 };

@@ -71,12 +71,12 @@ fn process_events(
     }
     for k in next_keys.iter() {
         if !keys.contains(k) {
-            game.key_down(*k);
+            game.key_down(k.to_string());
         }
     }
     for k in keys.iter() {
         if !next_keys.contains(k) {
-            game.key_up(*k);
+            game.key_up(k.to_string());
         }
     }
     //print!("keys: {:?}, next_keys: {:?}\n\r", keys, next_keys);

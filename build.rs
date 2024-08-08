@@ -52,7 +52,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         output_file.write_all(("];\n\n").as_bytes())?;
-        output_file.write_all( 
+        output_file.write_all(
             format!("pub const {name} : (usize, usize, &[Color]) = ( {width}, {height}, &{name}_IMAGE );\n").as_bytes())?;
     }
 
