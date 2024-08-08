@@ -17,10 +17,13 @@ static TICK_MS: u128 = 16;
 static KBD_MS: u128 = 100;
 
 fn main() -> () {
-    let mut stdin_handle = stdin();
-    let termios = console::prepare_stdin(&stdin_handle);
     let mut out = stdout();
+    console::screen_save(&mut out);
+    console::alternate_buffer_enable(&mut out);
     console::clear(&mut out);
+    console::cursor_disable(&mut out);
+    let mut stdin_handle = stdin();
+    let termios = console::prepare_terimnal(&stdin_handle);
 
     let mut game = Game::new(80, 50);
 
@@ -30,7 +33,6 @@ fn main() -> () {
 
     let mut keys: FnvHashSet<String> = FnvHashSet::default();
 
-    let wsize = get_terminal_size(&out);
     loop {
         // throttle ticks
         let since_last_tick = last_tick_time.elapsed().as_millis();
@@ -44,6 +46,7 @@ fn main() -> () {
         // draw frames / interact only if enough time passed
         if FRAMES_MS < start.duration_since(last_frame_time).as_millis() {
             last_frame_time = start;
+            let wsize = get_terminal_size(&out);
             text_render(&mut out, &game, wsize);
         }
 
@@ -64,7 +67,10 @@ fn main() -> () {
         }
     }
 
-    console::unprepare_stdin(&stdin_handle, termios);
+    console::restore_terminal(&stdin_handle, termios);
+    console::cursor_enable(&mut out);
+    console::alternate_buffer_disable(&mut out);
+    console::screen_restore(&mut out);
 }
 
 fn get_terminal_size(out: &std::io::Stdout) -> winsize {

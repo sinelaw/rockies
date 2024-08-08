@@ -22,7 +22,7 @@ static TERMIOS_EMPTY: libc::termios = libc::termios {
     c_ospeed: 0,
 };
 
-pub(crate) fn prepare_stdin(stdin_handle: &Stdin) -> termios {
+pub(crate) fn prepare_terimnal(stdin_handle: &Stdin) -> termios {
     let mut termios = TERMIOS_EMPTY;
     unsafe {
         let fd = stdin_handle.as_raw_fd();
@@ -38,7 +38,7 @@ pub(crate) fn prepare_stdin(stdin_handle: &Stdin) -> termios {
     }
 }
 
-pub(crate) fn unprepare_stdin(stdin_handle: &Stdin, prev_termios: termios) {
+pub(crate) fn restore_terminal(stdin_handle: &Stdin, prev_termios: termios) {
     let mut termios = prev_termios;
     unsafe {
         let fd = stdin_handle.as_raw_fd();
@@ -66,9 +66,15 @@ pub(crate) fn get_key(stdin_handle: &mut Stdin) -> Option<char> {
 pub(crate) fn clear(f: &mut impl Write) {
     write!(
         f,
-        "{}{}",
+        "{}",
         // Reset the terminal (clear the screen)
-        ansi_control_codes::independent_control_functions::RIS,
+        ansi_control_codes::independent_control_functions::RIS
+    )
+    .unwrap();
+
+    write!(
+        f,
+        "{}",
         // Go to position 0,0
         ansi_control_codes::control_sequences::CUP(0.into(), 0.into())
     )
@@ -83,4 +89,32 @@ pub(crate) fn home(f: &mut impl Write) {
         ansi_control_codes::control_sequences::CUP(0.into(), 0.into())
     )
     .unwrap();
+}
+
+pub(crate) fn cursor_disable(f: &mut impl Write) {
+    // Make cursor invisible:
+    // see https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
+    // see https://invisible-island.net/xterm/ctlseqs/ctlseqs.html
+    // see https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h3-Functions-using-CSI-_-ordered-by-the-final-character_s_
+    write!(f, "\x1B[?25l").unwrap();
+}
+
+pub(crate) fn cursor_enable(f: &mut impl Write) {
+    write!(f, "\x1B[?25h").unwrap();
+}
+
+pub(crate) fn alternate_buffer_enable(f: &mut impl Write) {
+    write!(f, "\x1B[?1049h").unwrap();
+}
+
+pub(crate) fn alternate_buffer_disable(f: &mut impl Write) {
+    write!(f, "\x1B[?1049l").unwrap();
+}
+
+pub(crate) fn screen_restore(f: &mut impl Write) {
+    write!(f, "\x1B[?47l").unwrap();
+}
+
+pub(crate) fn screen_save(f: &mut impl Write) {
+    write!(f, "\x1B[?47h").unwrap();
 }
