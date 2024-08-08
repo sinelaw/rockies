@@ -628,7 +628,7 @@ impl UniverseCells {
                 }
             }
         }
-        println!("removed {} cells", removed_cells);
+        //println!("removed {} cells", removed_cells);
         for grid_index in far_grids {
             self.grids.drop_grid(grid_index);
         }

@@ -7,7 +7,7 @@ use std::{
 
 mod console;
 
-use ansi_term::{ANSIGenericString, ANSIString, ANSIStrings};
+use ansi_term::{ANSIGenericString, ANSIStrings};
 use fnv::FnvHashSet;
 use libc::{ioctl, winsize, TIOCGWINSZ};
 use rockies::Game;
@@ -25,7 +25,9 @@ fn main() -> () {
     let mut stdin_handle = stdin();
     let termios = console::prepare_terimnal(&stdin_handle);
 
-    let mut game = Game::new(80, 50);
+    let winsize = get_terminal_size(&out);
+
+    let mut game = Game::new(winsize.ws_col as usize - 2, winsize.ws_row as usize - 2);
 
     let mut last_frame_time = Instant::now();
     let mut last_tick_time = Instant::now();
