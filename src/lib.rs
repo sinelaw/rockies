@@ -30,6 +30,8 @@ pub struct Game {
     shoot_color: Color,
 }
 
+static GRID_SIZE : usize = 128;
+
 #[wasm_bindgen]
 impl Game {
     pub fn new(width: usize, height: usize) -> Self {
@@ -39,7 +41,7 @@ impl Game {
             width,
             height,
             pixels: vec![0xFFFFFF; (width * height) as usize],
-            universe: Universe::new(width, height),
+            universe: Universe::new(GRID_SIZE, GRID_SIZE),
             keys: HashSet::new(),
             shoot_color: Color::hsv(90.0, 1.0, 1.0),
         }
