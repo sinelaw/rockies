@@ -362,15 +362,30 @@ impl UniverseCells {
         }
     }
 
-    pub fn get(&mut self, pos: V2i) -> Option<&Cell> {
-        let grid_index = self.grids.pos_to_index(pos);
-        self.ensure_grid(grid_index);
-        let get_res = self.grids.get(grid_index).unwrap().get(pos);
-        for cell_idx in get_res.value {
-            // if there are multiple cells inside, return one of them:
-            return self.cells.get(&cell_idx);
+    pub fn get_range(&mut self, start_pos: V2i, end_pos: V2i) -> Vec<(V2i,Option<&Cell>)> {
+        let mut res = Vec::new();
+        let mut grid = &mut UniverseGrid::default();
+        let mut grid_index = self.grids.pos_to_index(start_pos);
+
+        for x in start_pos.x..end_pos.x {
+            for y in start_pos.y..end_pos.y {
+                let pos = V2i::new(x, y);
+
+                let cur_grid_index = self.grids.pos_to_index(pos);
+                if cur_grid_index != grid_index {
+                    grid_index = cur_grid_index;
+                    self.ensure_grid(grid_index);
+                    grid = self.grids.get(grid_index).unwrap();
+                }
+                let get_res = grid.get(pos);
+                for cell_idx in get_res.value {
+                    // if there are multiple cells inside, return one of them:
+                    res.push((pos, self.cells.get(&cell_idx)));
+                    break;
+                }
+            }
         }
-        Option::None
+        res
     }
 
     fn calc_forces(&mut self, gravity: V2) {
