@@ -81,13 +81,14 @@ impl Game {
             .cells
             .get_range(base_pos, base_pos.plus(V2i::new(w, h)));
         for res in get_res.iter() {
-            let cell_ref = res.1;
+            let cell_ref = res.1.clone();
             let pos = res.0;
             let pixel_pos = pos.minus(base_pos);
 
             let pixel_idx = (pixel_pos.y * w + pixel_pos.x) as usize;
             match cell_ref {
                 Some(cell) => {
+                    let cell = cell.borrow();
                     self.pixels[pixel_idx] = if cell.inertia.collision_stats > 0 {
                         0xFF0000
                     } else {

@@ -1,4 +1,6 @@
 use fnv::FnvHashMap;
+use std::cell::RefCell;
+use std::{fmt::Debug, rc::Rc};
 
 use std::convert::TryFrom;
 
@@ -10,15 +12,15 @@ pub struct CellIndex {
 }
 
 // Keeps track of the visible part of the world
-pub struct UniverseGrid {
+pub struct UniverseGrid<T> {
     pub width: usize,
     pub height: usize,
 
     offset: V2i,
-    grid: Grid<CellIndex>,
+    grid: Grid<T>,
 }
 
-impl UniverseGrid {
+impl<T: Debug> UniverseGrid<T> {
     pub fn is_in_bounds(&self, pos: V2i) -> bool {
         let relative_pos = pos.minus(self.offset);
         relative_pos.x >= 0
@@ -27,7 +29,7 @@ impl UniverseGrid {
             && relative_pos.y < self.height as i32
     }
 
-    pub fn remove(&mut self, pos: V2i, cell_idx: CellIndex) {
+    pub fn remove(&mut self, pos: V2i, cell_idx: &Rc<RefCell<T>>) {
         assert!(
             self.is_in_bounds(pos),
             "pos {pos:?} not in bounds, {:?}",
@@ -41,7 +43,7 @@ impl UniverseGrid {
         )
     }
 
-    pub fn put(&mut self, pos: V2i, cell_idx: CellIndex) {
+    pub fn put(&mut self, pos: V2i, cell_idx: Rc<RefCell<T>>) {
         assert!(self.is_in_bounds(pos));
         let rpos = pos.minus(self.offset);
         self.grid.put(
@@ -51,7 +53,7 @@ impl UniverseGrid {
         )
     }
 
-    pub fn get(&self, pos: V2i) -> crate::grid::GetResult<CellIndex> {
+    pub fn get(&self, pos: V2i) -> crate::grid::GetResult<T> {
         assert!(self.is_in_bounds(pos));
         let rpos = pos.minus(self.offset);
         self.grid.get(
@@ -94,15 +96,15 @@ impl GridIndex {
     }
 }
 
-pub struct MultiGrid {
-    grids: FnvHashMap<GridIndex, UniverseGrid>,
+pub struct MultiGrid<T> {
+    grids: FnvHashMap<GridIndex, UniverseGrid<T>>,
 
     pub grid_width: usize,
     pub grid_height: usize,
 }
 
-impl MultiGrid {
-    pub fn new(width: usize, height: usize) -> MultiGrid {
+impl<T: Debug> MultiGrid<T> {
+    pub fn new(width: usize, height: usize) -> MultiGrid<T> {
         MultiGrid {
             grids: FnvHashMap::default(),
 
@@ -111,22 +113,22 @@ impl MultiGrid {
         }
     }
 
-    pub fn or_insert_with(&mut self, index: GridIndex, f: impl Fn() -> UniverseGrid) -> bool {
+    pub fn or_insert_with(&mut self, index: GridIndex, f: impl Fn() -> UniverseGrid<T>) -> bool {
         let is_new = !self.grids.contains_key(&index);
         self.grids.entry(index).or_insert_with(f);
         assert!(self.grids.contains_key(&index));
         is_new
     }
 
-    pub fn get(&self, grid_index: GridIndex) -> Option<&UniverseGrid> {
+    pub fn get(&self, grid_index: GridIndex) -> Option<&UniverseGrid<T>> {
         self.grids.get(&grid_index)
     }
 
-    pub fn get_mut(&mut self, grid_index: GridIndex) -> Option<&mut UniverseGrid> {
+    pub fn get_mut(&mut self, grid_index: GridIndex) -> Option<&mut UniverseGrid<T>> {
         self.grids.get_mut(&grid_index)
     }
 
-    fn remove(&mut self, grid_index: GridIndex) -> Option<UniverseGrid> {
+    fn remove(&mut self, grid_index: GridIndex) -> Option<UniverseGrid<T>> {
         self.grids.remove(&grid_index)
     }
 
@@ -134,13 +136,13 @@ impl MultiGrid {
         GridIndex::from_pos(pos, self.grid_width, self.grid_height)
     }
 
-    pub fn update_cell_pos(&mut self, cell_idx: CellIndex, old_pos: V2i, new_pos: V2i) {
+    pub fn update_cell_pos(&mut self, cell_idx: &Rc<RefCell<T>>, old_pos: V2i, new_pos: V2i) {
         // update grid:
         if old_pos != new_pos {
             self.get_mut(self.pos_to_index(old_pos))
                 .map(|grid| grid.remove(old_pos, cell_idx));
             self.get_mut(self.pos_to_index(new_pos))
-                .map(|grid| grid.put(new_pos, cell_idx));
+                .map(|grid| grid.put(new_pos, cell_idx.clone()));
         }
     }
 

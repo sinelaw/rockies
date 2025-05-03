@@ -1,20 +1,19 @@
-use std::fmt::Debug;
-use std::hash::Hash;
+use std::{cell::RefCell, fmt::Debug, rc::Rc};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GetResult<'a, T> {
-    pub value: &'a [T],
-    pub neighbors: &'a [T],
+    pub value: &'a [Rc<RefCell<T>>],
+    pub neighbors: &'a [Rc<RefCell<T>>],
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 struct GridCell<T> {
     version: usize,
-    value: Vec<T>,
-    neighbors: Vec<T>, // [T; 16],
+    value: Vec<Rc<RefCell<T>>>,
+    neighbors: Vec<Rc<RefCell<T>>>, // [T; 16],
 }
 
-impl<T: Clone + Default + PartialEq + Debug> GridCell<T> {
+impl<T: Debug> GridCell<T> {
     pub fn new() -> GridCell<T> {
         GridCell {
             version: 0,
@@ -45,28 +44,28 @@ impl<T: Clone + Default + PartialEq + Debug> GridCell<T> {
         }
     }
 
-    pub fn set_value(&mut self, version: usize, value: T) {
+    pub fn set_value(&mut self, version: usize, value: Rc<RefCell<T>>) {
         self.ensure_version(version);
         self.value.push(value);
     }
 
-    pub fn remove_value(&mut self, version: usize, value: T) {
+    pub fn remove_value(&mut self, version: usize, value: &Rc<RefCell<T>>) {
         if version != self.version {
             return;
         }
-        self.value.retain(|x| *x != value);
+        self.value.retain(|x| !Rc::ptr_eq(x, value));
     }
 
-    pub fn add_neighbor(&mut self, version: usize, neighbor: T) {
+    pub fn add_neighbor(&mut self, version: usize, neighbor: Rc<RefCell<T>>) {
         self.ensure_version(version);
         self.neighbors.push(neighbor);
     }
 
-    pub fn remove_neighbor(&mut self, version: usize, neighbor: T) {
+    pub fn remove_neighbor(&mut self, version: usize, neighbor: &Rc<RefCell<T>>) {
         if version != self.version {
             return;
         }
-        self.neighbors.retain(|x| *x != neighbor);
+        self.neighbors.retain(|x| !Rc::ptr_eq(x, neighbor));
     }
 }
 
@@ -85,13 +84,13 @@ fn grid_index(x: usize, y: usize, height: usize) -> usize {
 }
 
 /// Data organized in 2d
-impl<T: Default + Copy + Hash + Clone + Debug + Eq> Grid<T> {
+impl<T: Debug> Grid<T> {
     pub fn new(width: usize, height: usize) -> Grid<T> {
-        let mut grid: Vec<GridCell<T>> = Vec::new();
-        grid.resize(
-            ((width / FACTOR + 2) * (height / FACTOR + 2)) as usize,
-            GridCell::new(),
-        );
+        let mut grid: Vec<GridCell<T>> =
+            Vec::with_capacity(((width / FACTOR + 2) * (height / FACTOR + 2)) as usize);
+        for _ in 0..((width / FACTOR + 2) * (height / FACTOR + 2)) {
+            grid.push(GridCell::new());
+        }
         Grid {
             width,
             height,
@@ -100,10 +99,10 @@ impl<T: Default + Copy + Hash + Clone + Debug + Eq> Grid<T> {
         }
     }
 
-    pub fn put(&mut self, x: usize, y: usize, value: T) {
+    pub fn put(&mut self, x: usize, y: usize, value: Rc<RefCell<T>>) {
         assert!(x < self.width);
         assert!(y < self.height);
-        self.grid[grid_index(x + 1, y + 1, self.height)].set_value(self.version, value);
+        self.grid[grid_index(x + 1, y + 1, self.height)].set_value(self.version, value.clone());
         for px in 0..3 {
             for py in 0..3 {
                 self.grid[grid_index(x + px, y + py, self.height)]
@@ -122,14 +121,14 @@ impl<T: Default + Copy + Hash + Clone + Debug + Eq> Grid<T> {
         self.grid[grid_index(x + 1, y + 1, self.height)].get(self.version)
     }
 
-    pub fn remove(&mut self, x: usize, y: usize, value: T) {
+    pub fn remove(&mut self, x: usize, y: usize, value: &Rc<RefCell<T>>) {
         assert!(x < self.width);
         assert!(y < self.height);
         self.grid[grid_index(x + 1, y + 1, self.height)].remove_value(self.version, value);
         for px in 0..3 {
             for py in 0..3 {
                 self.grid[grid_index(x + px, y + py, self.height)]
-                    .remove_neighbor(self.version, value.clone());
+                    .remove_neighbor(self.version, value);
             }
         }
     }
@@ -148,13 +147,14 @@ mod tests {
     #[test]
     fn test_grid_one() {
         let mut grid: Grid<char> = Grid::new(1, 1);
-        grid.put(0, 0, 'a');
+        let a = Rc::new(RefCell::new('a'));
+        grid.put(0, 0, a.clone());
         let res = grid.get(0, 0);
         assert_eq!(res.neighbors.len(), 1);
-        assert_eq!(res.value, &['a']);
-        assert_eq!(res.neighbors, &['a']);
+        assert_eq!(res.value, &[a.clone()]);
+        assert_eq!(res.neighbors, &[a.clone()]);
 
-        grid.remove(0, 0, 'a');
+        grid.remove(0, 0, &a);
         let res = grid.get(0, 0);
         assert_eq!(res.neighbors.len(), 0);
         assert_eq!(res.value, &[]);
@@ -163,39 +163,43 @@ mod tests {
     #[test]
     fn test_grid_two() {
         let mut grid: Grid<char> = Grid::new(2, 1);
-        grid.put(0, 0, 'a');
-        grid.put(1, 0, 'b');
+        let a = Rc::new(RefCell::new('a'));
+        let b = Rc::new(RefCell::new('b'));
+        grid.put(0, 0, a.clone());
+        grid.put(1, 0, b.clone());
 
         let res = grid.get(0, 0);
 
         assert_eq!(res.neighbors.len(), 2);
-        assert_eq!(res.value, &['a']);
-        assert_eq!(res.neighbors, &['a', 'b']);
+        assert_eq!(res.value, &[a.clone()]);
+        assert_eq!(res.neighbors, &[a.clone(), b.clone()]);
 
-        grid.remove(0, 0, 'a');
+        grid.remove(0, 0, &a);
         let res = grid.get(0, 0);
         assert_eq!(res.neighbors.len(), 1);
         assert_eq!(res.value, &[]);
-        assert_eq!(res.neighbors, &['b']);
+        assert_eq!(res.neighbors, &[b.clone()]);
     }
 
     #[test]
     fn test_grid_two_apart() {
         let mut grid: Grid<char> = Grid::new(6, 2);
-        grid.put(0, 0, 'a');
-        grid.put(4, 0, 'b');
+        let a = Rc::new(RefCell::new('a'));
+        let b = Rc::new(RefCell::new('b'));
+        grid.put(0, 0, a.clone());
+        grid.put(4, 0, b.clone());
 
         {
             let res = grid.get(0, 0);
             assert_eq!(res.neighbors.len(), 1);
-            assert_eq!(res.value, &['a']);
-            assert_eq!(res.neighbors, &['a']);
+            assert_eq!(res.value, &[a.clone()]);
+            assert_eq!(res.neighbors, &[a.clone()]);
         }
         {
             let res = grid.get(4, 0);
             assert_eq!(res.neighbors.len(), 1);
-            assert_eq!(res.value, &['b']);
-            assert_eq!(res.neighbors, &['b']);
+            assert_eq!(res.value, &[b.clone()]);
+            assert_eq!(res.neighbors, &[b.clone()]);
         }
     }
     /*

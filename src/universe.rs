@@ -1,3 +1,6 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use crate::assets;
 use crate::color::Color;
 use crate::inertia::Inertia;
@@ -214,7 +217,8 @@ impl Player {
                 };
                 let get_res = grid.get(posi);
                 for cell_idx in get_res.neighbors {
-                    let cell_inertia = &cells.cells[cell_idx].inertia;
+                    let cell = cell_idx.borrow();
+                    let cell_inertia = &cell.inertia;
 
                     if Inertia::is_collision(&player_part, cell_inertia) {
                         return Inertia {
@@ -259,10 +263,9 @@ fn velocity_threshold(dt: f64) -> f64 {
 }
 
 pub struct UniverseCells {
-    pub cells: FnvHashMap<CellIndex, Cell>,
-    moving_cells: FnvHashSet<CellIndex>,
+    moving_cells: FnvHashSet<Rc<RefCell<Cell>>>,
 
-    grids: MultiGrid,
+    grids: MultiGrid<Cell>,
     next_cell_index: usize,
 
     stats: Stats,
@@ -276,7 +279,6 @@ pub struct UniverseCells {
 impl UniverseCells {
     fn new(width: usize, height: usize) -> UniverseCells {
         UniverseCells {
-            cells: FnvHashMap::default(),
             moving_cells: FnvHashSet::default(),
 
             grids: MultiGrid::new(width, height),
@@ -362,48 +364,59 @@ impl UniverseCells {
         }
     }
 
-    // First collect positions and indices, then look up cells
-    pub fn get_range(&mut self, start_pos: V2i, end_pos: V2i) -> Vec<(V2i, Option<&Cell>)> {
-        // Pre-ensure all grids we'll need
-        let mut grid_indices = FnvHashSet::default();
+    pub fn get_range(
+        &mut self,
+        start_pos: V2i,
+        end_pos: V2i,
+    ) -> Vec<(V2i, Option<Rc<RefCell<Cell>>>)> {
+        self.ensure_grids(start_pos, end_pos);
+
+        let count = (end_pos.x - start_pos.x) * (end_pos.y - start_pos.y);
+        let mut result = Vec::with_capacity(count as usize);
+
+        let mut cur_grid: Option<(GridIndex, &UniverseGrid<Cell>)> = Option::None;
         for x in start_pos.x..end_pos.x {
             for y in start_pos.y..end_pos.y {
                 let pos = V2i::new(x, y);
                 let grid_index = self.grids.pos_to_index(pos);
-                grid_indices.insert(grid_index);
-            }
-        }
 
-        // Ensure all needed grids exist
-        for &grid_index in &grid_indices {
-            self.ensure_grid(grid_index);
-        }
-
-        // Now collect positions and cells
-        let mut result = Vec::new();
-        for x in start_pos.x..end_pos.x {
-            for y in start_pos.y..end_pos.y {
-                let pos = V2i::new(x, y);
-                let grid_index = self.grids.pos_to_index(pos);
-                let grid = self.grids.get(grid_index).unwrap();
-                let get_res = grid.get(pos);
-                if get_res.value.len() == 0 {
-                    result.push((pos, None));
-                } else {
-                    for cell_idx in get_res.value {
-                        result.push((pos, self.cells.get(&cell_idx)));
-                        break;
-                    }
+                // Only lookup grid if grid_index changed
+                if cur_grid.map_or(true, |x| x.0 != grid_index) {
+                    cur_grid = Some((grid_index, self.grids.get(grid_index).unwrap()));
                 }
+                let grid = cur_grid.unwrap().1;
+
+                let get_res = grid.get(pos);
+                result.push((pos, self.get_cell_at(get_res)));
             }
         }
 
         result
     }
 
+    fn get_cell_at(&self, get_res: crate::grid::GetResult<'_, Cell>) -> Option<Rc<RefCell<Cell>>> {
+        for cell_idx in get_res.value {
+            return Some(cell_idx.clone());
+        }
+        None
+    }
+
+    fn ensure_grids(&mut self, start_pos: V2i, end_pos: V2i) {
+        // Pre-ensure all grids we'll need
+        let width = self.grids.grid_width;
+        let height = self.grids.grid_height;
+        for x in (start_pos.x..(end_pos.x + width as i32)).step_by(width) {
+            for y in (start_pos.y..(end_pos.y + height as i32)).step_by(height) {
+                let pos = V2i::new(x, y);
+                let grid_index = self.grids.pos_to_index(pos);
+                self.ensure_grid(grid_index);
+            }
+        }
+    }
+
     fn calc_forces(&mut self, gravity: V2) {
         for cell_idx in self.moving_cells.iter() {
-            let cell = &mut self.cells.get_mut(&cell_idx).unwrap();
+            let mut cell = cell_idx.borrow_mut();
             if cell.inertia.mass > 0 {
                 cell.inertia.force = gravity.cmul(cell.inertia.mass as f64);
             }
@@ -412,14 +425,14 @@ impl UniverseCells {
 
     fn zero_forces(&mut self) {
         for cell_idx in self.moving_cells.iter() {
-            let cell = &mut self.cells.get_mut(&cell_idx).unwrap();
+            let mut cell = cell_idx.borrow_mut();
             cell.inertia.force = V2::zero();
         }
     }
 
     fn update_velocity(&mut self, dt: f64) {
         for cell_idx in self.moving_cells.iter() {
-            let cell = &mut self.cells.get_mut(&cell_idx).unwrap();
+            let mut cell = cell_idx.borrow_mut();
             if cell.inertia.mass > 0 {
                 cell.inertia.velocity = clamp_velocity(
                     cell.inertia
@@ -435,7 +448,7 @@ impl UniverseCells {
         self.collisions_list.clear();
 
         for cell1_idx in self.moving_cells.iter() {
-            let cell1 = &self.cells[cell1_idx];
+            let mut cell1 = cell1_idx.borrow();
             let grid_index = self.grids.pos_to_index(cell1.inertia.pos.round());
 
             if self.grids.get(grid_index).is_none() {
@@ -447,11 +460,11 @@ impl UniverseCells {
                 .unwrap()
                 .get(cell1.inertia.pos.round());
             for cell2_idx in get_res.neighbors {
-                if *cell1_idx == *cell2_idx {
+                if Rc::ptr_eq(cell1_idx, cell2_idx) {
                     continue;
                 }
 
-                if !self.collisions_map.insert((*cell1_idx, *cell2_idx)) {
+                if !self.collisions_map.insert((cell1_idx, cell2_idx)) {
                     continue;
                 }
 
