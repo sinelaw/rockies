@@ -30,7 +30,7 @@ pub struct Game {
     shoot_color: Color,
 }
 
-static GRID_SIZE : usize = 128;
+static GRID_SIZE: usize = 128;
 
 #[wasm_bindgen]
 impl Game {
@@ -76,41 +76,42 @@ impl Game {
             .round()
             .minus(render_offset);
 
-        for x in 0..w {
-            for y in 0..h {
-                let pixel_pos = V2i::new(x, y);
-                let pos = base_pos.plus(pixel_pos);
-                let get_res = self.universe.cells.get(pos);
+        let get_res = self
+            .universe
+            .cells
+            .get_range(base_pos, base_pos.plus(V2i::new(w, h)));
+        for res in get_res.iter() {
+            let cell_ref = res.1;
+            let pos = res.0;
+            let pixel_pos = pos.minus(base_pos);
 
-                let pixel_idx = (pixel_pos.y * w + pixel_pos.x) as usize;
-                match get_res {
-                    Some(cell) => {
-                        self.pixels[pixel_idx] = if cell.inertia.collision_stats > 0 {
-                            0xFF0000
-                        } else {
-                            cell.color.to_u32()
-                        }
+            let pixel_idx = (pixel_pos.y * w + pixel_pos.x) as usize;
+            match cell_ref {
+                Some(cell) => {
+                    self.pixels[pixel_idx] = if cell.inertia.collision_stats > 0 {
+                        0xFF0000
+                    } else {
+                        cell.color.to_u32()
                     }
-                    None => {
-                        let depth = pos.y - h;
+                }
+                None => {
+                    let depth = pos.y - h;
 
-                        self.pixels[pixel_idx] = if depth >= 0 {
-                            // underground - deeper is darker
-                            let value = (255.0 / ((depth + 2) as f64).powf(0.5)) as u32;
-                            value + (value << 8) + (value << 16)
+                    self.pixels[pixel_idx] = if depth >= 0 {
+                        // underground - deeper is darker
+                        let value = (255.0 / ((depth + 2) as f64).powf(0.5)) as u32;
+                        value + (value << 8) + (value << 16)
+                    } else {
+                        let altitude = -depth as f64;
+                        // generate clouds
+                        let posv = pos.to_v2().plus(V2::new(0.5, 0.7)).cmul(0.01);
+                        let noise2 = perlin_2d(Vector2::new(posv.y * 10.0, posv.x * 10.0), &hasher);
+                        let noise = perlin_2d(Vector2::new(posv.x, posv.y), &hasher);
+                        if (0.2 + 0.9 / (altitude / 10.0)) < noise2 * noise {
+                            0xFFFFFF
                         } else {
-                            let altitude = -depth as f64;
-                            // generate clouds
-                            let posv = pos.to_v2().plus(V2::new(0.5, 0.7)).cmul(0.01);
-                            let noise2 =
-                                perlin_2d(Vector2::new(posv.y * 10.0, posv.x * 10.0), &hasher);
-                            let noise = perlin_2d(Vector2::new(posv.x, posv.y), &hasher);
-                            if (0.2 + 0.9 / (altitude / 10.0)) < noise2 * noise {
-                                0xFFFFFF
-                            } else {
-                                // above ground - sky
-                                0xCCCCFF
-                            }
+                            // above ground - sky
+                            0xCCCCFF
                         }
                     }
                 }

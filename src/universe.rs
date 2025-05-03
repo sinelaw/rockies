@@ -362,30 +362,39 @@ impl UniverseCells {
         }
     }
 
-    pub fn get_range(&mut self, start_pos: V2i, end_pos: V2i) -> Vec<(V2i,Option<&Cell>)> {
-        let mut res = Vec::new();
-        let mut grid = &mut UniverseGrid::default();
-        let mut grid_index = self.grids.pos_to_index(start_pos);
-
+    // First collect positions and indices, then look up cells
+    pub fn get_range(&mut self, start_pos: V2i, end_pos: V2i) -> Vec<(V2i, Option<&Cell>)> {
+        // Pre-ensure all grids we'll need
+        let mut grid_indices = FnvHashSet::default();
         for x in start_pos.x..end_pos.x {
             for y in start_pos.y..end_pos.y {
                 let pos = V2i::new(x, y);
+                let grid_index = self.grids.pos_to_index(pos);
+                grid_indices.insert(grid_index);
+            }
+        }
 
-                let cur_grid_index = self.grids.pos_to_index(pos);
-                if cur_grid_index != grid_index {
-                    grid_index = cur_grid_index;
-                    self.ensure_grid(grid_index);
-                    grid = self.grids.get(grid_index).unwrap();
-                }
+        // Ensure all needed grids exist
+        for &grid_index in &grid_indices {
+            self.ensure_grid(grid_index);
+        }
+
+        // Now collect positions and cells
+        let mut result = Vec::new();
+        for x in start_pos.x..end_pos.x {
+            for y in start_pos.y..end_pos.y {
+                let pos = V2i::new(x, y);
+                let grid_index = self.grids.pos_to_index(pos);
+                let grid = self.grids.get(grid_index).unwrap();
                 let get_res = grid.get(pos);
                 for cell_idx in get_res.value {
-                    // if there are multiple cells inside, return one of them:
-                    res.push((pos, self.cells.get(&cell_idx)));
+                    result.push((pos, self.cells.get(&cell_idx)));
                     break;
                 }
             }
         }
-        res
+
+        result
     }
 
     fn calc_forces(&mut self, gravity: V2) {
@@ -626,7 +635,6 @@ impl UniverseCells {
             return;
         }
 
-        let mut removed_cells = 0;
         for grid_index in far_grids.iter() {
             let grid = self.grids.get_mut(*grid_index).unwrap();
             let grid_origin = grid_index.to_pos(grid.width, grid.height);
@@ -638,7 +646,6 @@ impl UniverseCells {
                     for cell_index in values {
                         self.cells.remove(&cell_index);
                         self.moving_cells.remove(&cell_index);
-                        removed_cells += 1;
                     }
                 }
             }
