@@ -387,9 +387,13 @@ impl UniverseCells {
                 let grid_index = self.grids.pos_to_index(pos);
                 let grid = self.grids.get(grid_index).unwrap();
                 let get_res = grid.get(pos);
-                for cell_idx in get_res.value {
-                    result.push((pos, self.cells.get(&cell_idx)));
-                    break;
+                if get_res.value.len() == 0 {
+                    result.push((pos, None));
+                } else {
+                    for cell_idx in get_res.value {
+                        result.push((pos, self.cells.get(&cell_idx)));
+                        break;
+                    }
                 }
             }
         }
