@@ -263,14 +263,14 @@ fn velocity_threshold(dt: f64) -> f64 {
 }
 
 pub struct UniverseCells {
-    moving_cells: FnvHashSet<Rc<RefCell<Cell>>>,
+    moving_cells: FnvHashMap<CellIndex, Rc<RefCell<Cell>>>,
 
     grids: MultiGrid<Cell>,
     next_cell_index: usize,
 
     stats: Stats,
     // transient data:
-    collisions_list: Vec<(CellIndex, CellIndex)>,
+    collisions_list: Vec<(Rc<RefCell<Cell>>, Rc<RefCell<Cell>>)>,
     collisions_map: FnvHashSet<(CellIndex, CellIndex)>,
 
     seed: i32,
@@ -279,7 +279,7 @@ pub struct UniverseCells {
 impl UniverseCells {
     fn new(width: usize, height: usize) -> UniverseCells {
         UniverseCells {
-            moving_cells: FnvHashSet::default(),
+            moving_cells: FnvHashMap::default(),
 
             grids: MultiGrid::new(width, height),
             next_cell_index: 0,
@@ -415,8 +415,8 @@ impl UniverseCells {
     }
 
     fn calc_forces(&mut self, gravity: V2) {
-        for cell_idx in self.moving_cells.iter() {
-            let mut cell = cell_idx.borrow_mut();
+        for (_cell_idx, cell_ref) in self.moving_cells.iter() {
+            let mut cell = cell_ref.borrow_mut();
             if cell.inertia.mass > 0 {
                 cell.inertia.force = gravity.cmul(cell.inertia.mass as f64);
             }
@@ -424,15 +424,15 @@ impl UniverseCells {
     }
 
     fn zero_forces(&mut self) {
-        for cell_idx in self.moving_cells.iter() {
-            let mut cell = cell_idx.borrow_mut();
+        for (_cell_idx, cell_ref) in self.moving_cells.iter() {
+            let mut cell = cell_ref.borrow_mut();
             cell.inertia.force = V2::zero();
         }
     }
 
     fn update_velocity(&mut self, dt: f64) {
-        for cell_idx in self.moving_cells.iter() {
-            let mut cell = cell_idx.borrow_mut();
+        for (_cell_idx, cell_ref) in self.moving_cells.iter() {
+            let mut cell = cell_ref.borrow_mut();
             if cell.inertia.mass > 0 {
                 cell.inertia.velocity = clamp_velocity(
                     cell.inertia
@@ -447,8 +447,8 @@ impl UniverseCells {
         self.collisions_map.clear();
         self.collisions_list.clear();
 
-        for cell1_idx in self.moving_cells.iter() {
-            let mut cell1 = cell1_idx.borrow();
+        for (_cell1_idx, cell1_ref) in self.moving_cells.iter() {
+            let cell1 = cell1_ref.borrow();
             let grid_index = self.grids.pos_to_index(cell1.inertia.pos.round());
 
             if self.grids.get(grid_index).is_none() {
@@ -459,23 +459,24 @@ impl UniverseCells {
                 .get(grid_index)
                 .unwrap()
                 .get(cell1.inertia.pos.round());
-            for cell2_idx in get_res.neighbors {
-                if Rc::ptr_eq(cell1_idx, cell2_idx) {
+            for cell2_ref in get_res.neighbors {
+                if Rc::ptr_eq(cell1_ref, cell2_ref) {
                     continue;
                 }
 
-                if !self.collisions_map.insert((cell1_idx, cell2_idx)) {
+                let cell2 = cell2_ref.borrow();
+                if !self.collisions_map.insert((cell1.index, cell2.index)) {
                     continue;
                 }
 
                 self.stats.collision_pairs_tested += 1;
 
-                let cell2 = &self.cells[cell2_idx];
                 let inertia1 = &cell1.inertia;
                 let inertia2 = &cell2.inertia;
 
                 if Inertia::is_collision(inertia1, inertia2) {
-                    self.collisions_list.push((*cell1_idx, *cell2_idx));
+                    self.collisions_list
+                        .push((cell1_ref.clone(), cell2_ref.clone()));
                 }
 
                 // log!("cell1: {cell1:?}");
@@ -490,8 +491,8 @@ impl UniverseCells {
         self.collect_collisions();
         self.stats.collisions_count += self.collisions_list.len();
         for (cell1_idx, cell2_idx) in self.collisions_list.iter() {
-            let inertia2 = &self.cells[cell2_idx].inertia;
-            let inertia1 = &self.cells[cell1_idx].inertia;
+            let inertia2 = &cell2_idx.borrow().inertia;
+            let inertia1 = &cell1_idx.borrow().inertia;
 
             let mass1 = inertia1.mass;
             let mass2 = inertia2.mass;
@@ -500,10 +501,10 @@ impl UniverseCells {
                 && (low_velocity_collision(inertia1, inertia2, dt))
             {
                 if mass1 > 0 {
-                    self.cells.get_mut(cell1_idx).unwrap().set_static();
+                    cell1_idx.borrow_mut().set_static();
                 }
                 if mass2 > 0 {
-                    self.cells.get_mut(cell2_idx).unwrap().set_static();
+                    cell2_idx.borrow_mut().set_static();
                 }
 
                 continue;
@@ -512,21 +513,16 @@ impl UniverseCells {
             let (new_inertia1, new_inertia2) = Inertia::collide(inertia1, inertia2);
 
             self.grids
-                .update_cell_pos(*cell1_idx, inertia1.pos.round(), new_inertia1.pos.round());
+                .update_cell_pos(cell1_idx, inertia1.pos.round(), new_inertia1.pos.round());
             self.grids
-                .update_cell_pos(*cell2_idx, inertia2.pos.round(), new_inertia2.pos.round());
+                .update_cell_pos(cell2_idx, inertia2.pos.round(), new_inertia2.pos.round());
 
-            Self::update_cell_collision(&mut self.cells, cell1_idx, new_inertia1);
-            Self::update_cell_collision(&mut self.cells, cell2_idx, new_inertia2);
+            Self::update_cell_collision(&mut cell1_idx.borrow_mut(), new_inertia1);
+            Self::update_cell_collision(&mut cell2_idx.borrow_mut(), new_inertia2);
         }
     }
 
-    fn update_cell_collision(
-        cells: &mut FnvHashMap<CellIndex, Cell>,
-        cell_index: &CellIndex,
-        new_inertia: Inertia,
-    ) {
-        let cell = cells.get_mut(cell_index).unwrap();
+    fn update_cell_collision(cell: &mut Cell, new_inertia: Inertia) {
         cell.inertia = new_inertia;
         cell.inertia.collision_stats += 1;
         log!("index: {cell_index:?}, inertia: {new_inertia:?}");
@@ -534,37 +530,28 @@ impl UniverseCells {
 
     fn update_pos(&mut self, dt: f64) {
         // update grid and positions
-        for cell_index in &self.moving_cells {
-            let cell = self.cells.get_mut(cell_index).unwrap();
+        for (_cell_index, cell_ref) in &self.moving_cells {
+            let mut cell = cell_ref.borrow_mut();
             let old_pos = cell.inertia.pos;
             let new_pos = cell.inertia.pos.plus(cell.inertia.velocity.cmul(dt));
 
             // update grid:
             self.grids
-                .update_cell_pos(*cell_index, old_pos.round(), new_pos.round());
+                .update_cell_pos(&cell_ref, old_pos.round(), new_pos.round());
             // update position:
             cell.inertia.pos = new_pos;
         }
 
         // Filter out moving cells that have been made static
         // (TODO: some previously static cells may now need to be in moving_cells?)
-        self.moving_cells = self
-            .moving_cells
-            .iter()
-            .filter(|cell_idx| {
-                self.cells
-                    .get(cell_idx)
-                    .map(|x| x.inertia.mass > 0)
-                    .unwrap_or(false)
-            })
-            .map(|x| *x)
-            .collect();
+
+        self.moving_cells.retain(|_, cell_ref| {
+            let cell = cell_ref.borrow();
+            cell.inertia.mass > 0
+        });
     }
 
     pub fn add_cell(&mut self, cell: Cell) {
-        if self.cells.len() == MAX_CELLS {
-            return;
-        }
         let pos = cell.inertia.pos.round();
         let grid_index = self.grids.pos_to_index(pos);
         // don't allow adding too many cells in the same region
@@ -575,16 +562,18 @@ impl UniverseCells {
         }
 
         self.next_cell_index += 1;
-        self.stats.cells_count += 1;
         let index = CellIndex {
             index: self.next_cell_index,
         };
-        self.cells.insert(index, Cell { index, ..cell });
-        self.moving_cells.insert(index);
-        grid.put(pos, index);
+        let cell = Cell { index, ..cell };
+
+        self.stats.cells_count += 1;
+        let cell_ref = Rc::new(RefCell::new(cell));
+        self.moving_cells.insert(index, cell_ref.clone());
+        grid.put(pos, cell_ref.clone());
     }
 
-    fn get_cells(&mut self, center: V2i, radius: usize) -> Vec<CellIndex> {
+    fn get_cells(&mut self, center: V2i, radius: usize) -> Vec<Rc<RefCell<Cell>>> {
         let mut res = Vec::new();
         let r = radius as i32;
         for i in -r..r {
@@ -601,14 +590,14 @@ impl UniverseCells {
 
     pub fn unstick_cells(&mut self, center: V2i, radius: usize) {
         for cell_idx in self.get_cells(center, radius) {
-            let cell = self.cells.get_mut(&cell_idx).unwrap();
+            let mut cell = cell_idx.borrow_mut();
             if cell.inertia.mass > 0 {
                 continue;
             }
             cell.unset_static();
-            self.moving_cells.insert(cell_idx);
+            self.moving_cells.insert(cell.index, cell_idx.clone());
             cell.inertia.velocity = V2 {
-                x: 2.0 * (cell_idx.index % 10 - 5) as f64 / 10.0,
+                x: 2.0 * (cell.index.index % 10 - 5) as f64 / 10.0,
                 y: -1.0, //(cell_idx.index % 10 - 5) as f64 / 10000.0 * self.dt,
             };
         }
@@ -618,23 +607,22 @@ impl UniverseCells {
         let grid_index = self.grids.pos_to_index(ppos);
         self.ensure_grid(grid_index);
 
-        let values: Vec<CellIndex> = self
+        let values: Vec<&Rc<RefCell<Cell>>> = self
             .grids
             .get(grid_index)
             .unwrap()
             .get(ppos)
             .value
             .iter()
-            .map(|x| *x)
             .collect();
 
-        for cell_idx in values {
-            self.cells.remove(&cell_idx);
-            self.moving_cells.remove(&cell_idx);
+        for cell_ref in values {
+            let cell = cell_ref.borrow();
+            self.moving_cells.remove(&cell.index);
             self.grids
                 .get_mut(grid_index)
                 .unwrap()
-                .remove(ppos, cell_idx);
+                .remove(ppos, &(*cell_ref).clone());
         }
     }
 
