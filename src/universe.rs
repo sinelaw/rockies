@@ -15,8 +15,6 @@ use wasm_bindgen::prelude::*;
 
 extern crate web_sys;
 
-const MAX_CELLS: usize = 4096 * 16;
-
 // A macro to provide `println!(..)`-style syntax for `console.log` logging.
 #[allow(unused_macros)]
 macro_rules! log {
@@ -607,13 +605,14 @@ impl UniverseCells {
         let grid_index = self.grids.pos_to_index(ppos);
         self.ensure_grid(grid_index);
 
-        let values: Vec<&Rc<RefCell<Cell>>> = self
+        let values: Vec<Rc<RefCell<Cell>>> = self
             .grids
             .get(grid_index)
             .unwrap()
             .get(ppos)
             .value
             .iter()
+            .map(|x| x.clone())
             .collect();
 
         for cell_ref in values {
@@ -622,14 +621,14 @@ impl UniverseCells {
             self.grids
                 .get_mut(grid_index)
                 .unwrap()
-                .remove(ppos, &(*cell_ref).clone());
+                .remove(ppos, &cell_ref.clone());
         }
     }
 
     fn reset_cell_stats(&mut self) {
-        for (_, cell) in &mut self.cells {
-            cell.inertia.collision_stats = 0;
-        }
+        //for (_, cell) in &mut self.cells {
+        //   cell.inertia.collision_stats = 0;
+        // }
     }
 
     fn drop_far_cells(&mut self, center: V2) {
@@ -649,8 +648,8 @@ impl UniverseCells {
                         .get(V2i::new(x as i32, y as i32).plus(grid_origin))
                         .value;
                     for cell_index in values {
-                        self.cells.remove(&cell_index);
-                        self.moving_cells.remove(&cell_index);
+                        //self.cells.remove(&cell_index);
+                        self.moving_cells.remove(&cell_index.borrow().index);
                     }
                 }
             }
