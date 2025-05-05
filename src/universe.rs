@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use crate::assets;
 use crate::color::Color;
+use crate::grid::GridCellRef;
 use crate::inertia::Inertia;
 use crate::multigrid::{CellIndex, GridIndex, MultiGrid, UniverseGrid};
 use crate::v2::{V2i, V2};
@@ -261,14 +262,14 @@ fn velocity_threshold(dt: f64) -> f64 {
 }
 
 pub struct UniverseCells {
-    moving_cells: FnvHashMap<CellIndex, Rc<RefCell<Cell>>>,
+    moving_cells: FnvHashMap<CellIndex, GridCellRef<Cell>>,
 
     grids: MultiGrid<Cell>,
     next_cell_index: usize,
 
     stats: Stats,
     // transient data:
-    collisions_list: Vec<(Rc<RefCell<Cell>>, Rc<RefCell<Cell>>)>,
+    collisions_list: Vec<(GridCellRef<Cell>, GridCellRef<Cell>)>,
     collisions_map: FnvHashSet<(CellIndex, CellIndex)>,
 
     seed: i32,
@@ -366,7 +367,7 @@ impl UniverseCells {
         &mut self,
         start_pos: V2i,
         end_pos: V2i,
-    ) -> Vec<(V2i, Option<Rc<RefCell<Cell>>>)> {
+    ) -> Vec<(V2i, Option<GridCellRef<Cell>>)> {
         self.ensure_grids(start_pos, end_pos);
 
         let count = (end_pos.x - start_pos.x) * (end_pos.y - start_pos.y);
@@ -392,7 +393,7 @@ impl UniverseCells {
         result
     }
 
-    fn get_cell_at(&self, get_res: crate::grid::GetResult<'_, Cell>) -> Option<Rc<RefCell<Cell>>> {
+    fn get_cell_at(&self, get_res: crate::grid::GetResult<'_, Cell>) -> Option<GridCellRef<Cell>> {
         for cell_idx in get_res.value {
             return Some(cell_idx.clone());
         }
@@ -574,7 +575,7 @@ impl UniverseCells {
         grid.put(pos, cell_ref.clone());
     }
 
-    fn get_cells(&mut self, center: V2i, radius: usize) -> Vec<Rc<RefCell<Cell>>> {
+    fn get_cells(&mut self, center: V2i, radius: usize) -> Vec<GridCellRef<Cell>> {
         let mut res = Vec::new();
         let r = radius as i32;
         for i in -r..r {
@@ -608,7 +609,7 @@ impl UniverseCells {
         let grid_index = self.grids.pos_to_index(ppos);
         self.ensure_grid(grid_index);
 
-        let values: Vec<Rc<RefCell<Cell>>> = self
+        let values: Vec<GridCellRef<Cell>> = self
             .grids
             .get(grid_index)
             .unwrap()

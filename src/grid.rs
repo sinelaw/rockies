@@ -1,16 +1,18 @@
 use std::{cell::RefCell, fmt::Debug, rc::Rc};
 
+pub type GridCellRef<T> = Rc<RefCell<T>>;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GetResult<'a, T> {
-    pub value: &'a [Rc<RefCell<T>>],
-    pub neighbors: &'a [Rc<RefCell<T>>],
+    pub value: &'a [GridCellRef<T>],
+    pub neighbors: &'a [GridCellRef<T>],
 }
 
 #[derive(Debug, Clone)]
 struct GridCell<T> {
     version: usize,
-    value: Vec<Rc<RefCell<T>>>,
-    neighbors: Vec<Rc<RefCell<T>>>, // [T; 16],
+    value: Vec<GridCellRef<T>>,
+    neighbors: Vec<GridCellRef<T>>, // [T; 16],
 }
 
 impl<T: Debug> GridCell<T> {
@@ -44,24 +46,24 @@ impl<T: Debug> GridCell<T> {
         }
     }
 
-    pub fn set_value(&mut self, version: usize, value: Rc<RefCell<T>>) {
+    pub fn set_value(&mut self, version: usize, value: GridCellRef<T>) {
         self.ensure_version(version);
         self.value.push(value);
     }
 
-    pub fn remove_value(&mut self, version: usize, value: &Rc<RefCell<T>>) {
+    pub fn remove_value(&mut self, version: usize, value: &GridCellRef<T>) {
         if version != self.version {
             return;
         }
         self.value.retain(|x| !Rc::ptr_eq(x, value));
     }
 
-    pub fn add_neighbor(&mut self, version: usize, neighbor: Rc<RefCell<T>>) {
+    pub fn add_neighbor(&mut self, version: usize, neighbor: GridCellRef<T>) {
         self.ensure_version(version);
         self.neighbors.push(neighbor);
     }
 
-    pub fn remove_neighbor(&mut self, version: usize, neighbor: &Rc<RefCell<T>>) {
+    pub fn remove_neighbor(&mut self, version: usize, neighbor: &GridCellRef<T>) {
         if version != self.version {
             return;
         }
@@ -99,7 +101,7 @@ impl<T: Debug> Grid<T> {
         }
     }
 
-    pub fn put(&mut self, x: usize, y: usize, value: Rc<RefCell<T>>) {
+    pub fn put(&mut self, x: usize, y: usize, value: GridCellRef<T>) {
         assert!(x < self.width);
         assert!(y < self.height);
         self.grid[grid_index(x + 1, y + 1, self.height)].set_value(self.version, value.clone());
@@ -121,7 +123,7 @@ impl<T: Debug> Grid<T> {
         self.grid[grid_index(x + 1, y + 1, self.height)].get(self.version)
     }
 
-    pub fn remove(&mut self, x: usize, y: usize, value: &Rc<RefCell<T>>) {
+    pub fn remove(&mut self, x: usize, y: usize, value: &GridCellRef<T>) {
         assert!(x < self.width);
         assert!(y < self.height);
         self.grid[grid_index(x + 1, y + 1, self.height)].remove_value(self.version, value);

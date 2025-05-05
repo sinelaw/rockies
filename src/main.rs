@@ -12,7 +12,7 @@ use fnv::FnvHashSet;
 use libc::{ioctl, winsize, TIOCGWINSZ};
 use rockies::Game;
 
-static FRAMES_MS: u128 = 20;
+static FRAMES_MS: u128 = 40;
 static TICK_MS: u128 = 20;
 static KBD_MS: u128 = 100;
 
