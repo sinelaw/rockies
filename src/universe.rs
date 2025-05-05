@@ -489,8 +489,11 @@ impl UniverseCells {
         self.collect_collisions();
         self.stats.collisions_count += self.collisions_list.len();
         for (cell1_idx, cell2_idx) in self.collisions_list.iter() {
-            let inertia2 = &cell2_idx.borrow().inertia;
-            let inertia1 = &cell1_idx.borrow().inertia;
+            let mut cell1 = cell1_idx.borrow_mut();
+            let mut cell2 = cell2_idx.borrow_mut();
+
+            let inertia2 = &cell2.inertia;
+            let inertia1 = &cell1.inertia;
 
             let mass1 = inertia1.mass;
             let mass2 = inertia2.mass;
@@ -499,10 +502,10 @@ impl UniverseCells {
                 && (low_velocity_collision(inertia1, inertia2, dt))
             {
                 if mass1 > 0 {
-                    cell1_idx.borrow_mut().set_static();
+                    cell1.set_static();
                 }
                 if mass2 > 0 {
-                    cell2_idx.borrow_mut().set_static();
+                    cell2.set_static();
                 }
 
                 continue;
@@ -515,8 +518,8 @@ impl UniverseCells {
             self.grids
                 .update_cell_pos(cell2_idx, inertia2.pos.round(), new_inertia2.pos.round());
 
-            Self::update_cell_collision(&mut cell1_idx.borrow_mut(), new_inertia1);
-            Self::update_cell_collision(&mut cell2_idx.borrow_mut(), new_inertia2);
+            Self::update_cell_collision(&mut cell1, new_inertia1);
+            Self::update_cell_collision(&mut cell2, new_inertia2);
         }
     }
 
