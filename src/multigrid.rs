@@ -1,9 +1,9 @@
 use fnv::FnvHashMap;
-use std::cell::RefCell;
-use std::{fmt::Debug, rc::Rc};
+use std::fmt::Debug;
 
 use std::convert::TryFrom;
 
+use crate::grid::GridCellRef;
 use crate::{grid::Grid, v2::V2i};
 
 #[derive(Default, Hash, Eq, Clone, Copy, Debug, PartialEq)]
@@ -29,7 +29,7 @@ impl<T: Debug> UniverseGrid<T> {
             && relative_pos.y < self.height as i32
     }
 
-    pub fn remove(&mut self, pos: V2i, cell_idx: &Rc<RefCell<T>>) {
+    pub fn remove(&mut self, pos: V2i, cell_idx: &GridCellRef<T>) {
         assert!(
             self.is_in_bounds(pos),
             "pos {pos:?} not in bounds, {:?}",
@@ -43,7 +43,7 @@ impl<T: Debug> UniverseGrid<T> {
         )
     }
 
-    pub fn put(&mut self, pos: V2i, cell_idx: Rc<RefCell<T>>) {
+    pub fn put(&mut self, pos: V2i, cell_idx: GridCellRef<T>) {
         assert!(self.is_in_bounds(pos));
         let rpos = pos.minus(self.offset);
         self.grid.put(
@@ -136,7 +136,7 @@ impl<T: Debug> MultiGrid<T> {
         GridIndex::from_pos(pos, self.grid_width, self.grid_height)
     }
 
-    pub fn update_cell_pos(&mut self, cell_idx: &Rc<RefCell<T>>, old_pos: V2i, new_pos: V2i) {
+    pub fn update_cell_pos(&mut self, cell_idx: &GridCellRef<T>, old_pos: V2i, new_pos: V2i) {
         // update grid:
         if old_pos != new_pos {
             self.get_mut(self.pos_to_index(old_pos))
