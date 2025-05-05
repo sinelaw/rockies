@@ -5,11 +5,12 @@ use std::{
     time::{Duration, Instant},
 };
 
-mod console;
-
 use ansi_term::{ANSIGenericString, ANSIStrings};
 use fnv::FnvHashSet;
+
 use libc::{ioctl, winsize, TIOCGWINSZ};
+mod console;
+
 use rockies::Game;
 
 static FRAMES_MS: u128 = 40;
