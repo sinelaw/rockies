@@ -1,1 +1,1 @@
-wasm-pack build -- --features=wasm --no-default-features
+wasm-pack build -- --features=wasm --features=js --no-default-features

@@ -1,6 +1,7 @@
 use std::{
     io::{stdin, stdout, Write},
     os::fd::AsRawFd,
+    sync::{Arc, RwLock},
     thread::sleep,
     time::{Duration, Instant},
 };
@@ -28,13 +29,17 @@ fn main() -> () {
 
     let winsize = get_terminal_size(&out);
 
-    let mut game = Game::new(winsize.ws_col as usize - 2, winsize.ws_row as usize - 2);
-
-    let mut last_frame_time = Instant::now();
     let mut last_tick_time = Instant::now();
     let mut last_kbd_time = Instant::now();
 
     let mut keys: FnvHashSet<String> = FnvHashSet::default();
+    let (tx, rx) = std::sync::mpsc::channel();
+
+    let stop: Arc<RwLock<bool>> = Arc::new(RwLock::new(false));
+    let render_stop = stop.clone();
+    let render_handle = std::thread::spawn(move || render_thread(rx, render_stop));
+
+    let mut game = Game::new(winsize.ws_col as usize - 2, winsize.ws_row as usize - 2);
 
     loop {
         // throttle ticks
@@ -45,13 +50,12 @@ fn main() -> () {
 
         let start = Instant::now();
         last_tick_time = start;
+        let wsize = get_terminal_size(&out);
+
+        let frame: Vec<ANSIGenericString<'_, str>> = generate_text_frame(&game, wsize);
+        tx.send(frame).expect("Failed to send frame");
+
         game.tick();
-        // draw frames / interact only if enough time passed
-        if FRAMES_MS < start.duration_since(last_frame_time).as_millis() {
-            last_frame_time = start;
-            let wsize = get_terminal_size(&out);
-            text_render(&mut out, &game, wsize);
-        }
 
         // keyboard events are not really available in terminal console. We only
         // get a stream of characters from stdin to work with. If a key is being
@@ -65,15 +69,44 @@ fn main() -> () {
             last_kbd_time = start;
             let keep_going = process_keyboard(&mut stdin_handle, &mut keys, &mut game);
             if !keep_going {
+                *stop.write().unwrap() = true;
                 break;
             }
         }
     }
 
+    render_handle.join().unwrap();
+
     console::restore_terminal(&stdin_handle, termios);
     console::cursor_enable(&mut out);
     console::alternate_buffer_disable(&mut out);
     console::screen_restore(&mut out);
+}
+
+fn render_thread(
+    rx: std::sync::mpsc::Receiver<Vec<ANSIGenericString<'_, str>>>,
+    stop: Arc<RwLock<bool>>,
+) -> () {
+    let mut out = stdout();
+    let mut last_frame_time = Instant::now();
+    loop {
+        if *stop.read().unwrap() {
+            return;
+        }
+        if let Ok(frame) = rx.try_recv() {
+            // clear the channel (skip any other pending frames)
+            while rx.try_recv().is_ok() {}
+
+            let now = Instant::now();
+            last_frame_time = now;
+            text_render(&mut out, frame);
+        }
+        // throttle rendering
+        let since_last_frame = last_frame_time.elapsed().as_millis();
+        if FRAMES_MS > since_last_frame {
+            sleep(Duration::from_millis((FRAMES_MS - since_last_frame) as u64));
+        }
+    }
 }
 
 fn get_terminal_size(out: &std::io::Stdout) -> winsize {
@@ -151,7 +184,15 @@ fn process_keyboard(
     true
 }
 
-fn text_render(out: &mut std::io::Stdout, game: &Game, wsize: winsize) -> () {
+fn text_render(out: &mut std::io::Stdout, frame: Vec<ANSIGenericString<'_, str>>) -> () {
+    let output = ANSIStrings(frame.as_slice());
+
+    console::home(out);
+    write!(out, "{}", output).unwrap();
+    out.flush().unwrap();
+}
+
+fn generate_text_frame(game: &Game, wsize: winsize) -> Vec<ANSIGenericString<'static, str>> {
     let term_width = usize::from(wsize.ws_col);
     let padding = if term_width > game.width() {
         (term_width - game.width()) / 2
@@ -177,10 +218,5 @@ fn text_render(out: &mut std::io::Stdout, game: &Game, wsize: winsize) -> () {
         frame.push("\n".into());
         frame.push("\r".into());
     }
-
-    let output = ANSIStrings(frame.as_slice());
-
-    console::home(out);
-    write!(out, "{}", output).unwrap();
-    out.flush().unwrap();
+    frame
 }
