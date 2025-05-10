@@ -1,1 +1,3 @@
-wasm-pack build -- --features=wasm --features=js --no-default-features
+wasm-pack build -- --features=wasm_js --no-default-features
+cd www
+npm run start
