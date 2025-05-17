@@ -129,12 +129,12 @@ impl Game {
     fn render_background(&self, pos: V2i) -> u32 {
         let hasher = &self.hasher;
         let depth = pos.y - (self.height as i32);
-        if depth >= 0 {
+        if depth >= self.height as i32 {
             // underground - deeper is darker
             let value = (255.0 / ((depth + 2) as f64).powf(0.5)) as u32;
             value + (value << 8) + (value << 16)
         } else {
-            let altitude = -depth as f64;
+            let altitude = -depth as f64 + self.height as f64;
             // generate clouds
             let posv = pos.to_v2().plus(V2::new(0.5, 0.7)).cmul(0.01);
             let noise2 = perlin_2d(Vector2::new(posv.y * 10.0, posv.x * 10.0), hasher);
