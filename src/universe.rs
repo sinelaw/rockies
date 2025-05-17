@@ -37,7 +37,7 @@ impl Cell {
         self.inertia.velocity = V2::zero();
         self.inertia.pos = self.inertia.pos.round().to_v2();
         self.inertia.mass = 0;
-        //self.inertia.collision_stats = 0;
+        self.inertia.collision_stats = 0;
     }
     fn unset_static(&mut self) {
         self.inertia.mass = 1;
@@ -259,7 +259,7 @@ fn clamp_velocity(v: V2) -> V2 {
 }
 
 fn velocity_threshold(dt: f64) -> f64 {
-    dt / 5.0
+    dt / 2.0
 }
 
 pub struct UniverseCells {

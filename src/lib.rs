@@ -113,11 +113,12 @@ impl Game {
         match cell_ref {
             Some(cell) => {
                 let cell = cell.borrow();
-                self.pixels[pixel_idx] = if cell.inertia.collision_stats > 0 {
-                    0xFF0000
-                } else {
-                    cell.color.to_u32()
-                }
+                self.pixels[pixel_idx] =
+                    if cell.inertia.collision_stats > 0 && cell.inertia.mass > 0 {
+                        0xFF0000
+                    } else {
+                        cell.color.to_u32()
+                    }
             }
             None => {
                 self.pixels[pixel_idx] = self.render_background(pos);
