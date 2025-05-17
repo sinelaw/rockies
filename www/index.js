@@ -12,12 +12,15 @@ const width = game.width();
 const height = game.height();
 
 const ticks = document.getElementById("ticks");
+const version = document.getElementById("version");
 const cells_count = document.getElementById("cells-count");
 const collisions_count = document.getElementById("collisions-count");
 const collision_pairs_tested = document.getElementById("collision-pairs-tested");
 
 canvas.height = (CELL_SIZE) * height + 1;
 canvas.width = (CELL_SIZE) * width + 1;
+
+version.textContent = game.version();
 
 const ctx = canvas.getContext('2d');
 

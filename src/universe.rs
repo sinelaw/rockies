@@ -37,6 +37,7 @@ impl Cell {
         self.inertia.velocity = V2::zero();
         self.inertia.pos = self.inertia.pos.round().to_v2();
         self.inertia.mass = 0;
+        //self.inertia.collision_stats = 0;
     }
     fn unset_static(&mut self) {
         self.inertia.mass = 1;
@@ -629,12 +630,6 @@ impl UniverseCells {
         }
     }
 
-    fn reset_cell_stats(&mut self) {
-        //for (_, cell) in &mut self.cells {
-        //   cell.inertia.collision_stats = 0;
-        // }
-    }
-
     fn drop_far_cells(&mut self, center: V2) {
         let drop_radius = 2;
         let far_grids = self.grids.get_far_grids(center.round(), drop_radius);
@@ -700,7 +695,6 @@ impl Universe {
 
     pub fn tick(&mut self) {
         self.cells.stats.ticks += 1;
-        self.cells.reset_cell_stats();
 
         for _ in 0..((1.0 / self.dt) as usize) {
             //self.log_cells();

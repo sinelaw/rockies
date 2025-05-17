@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::sync::LazyLock;
 mod inertia;
 
 mod assets;
@@ -28,9 +29,18 @@ pub struct Game {
     universe: Universe,
     keys: HashSet<String>,
     shoot_color: Color,
+    hasher: PermutationTable,
 }
 
 static GRID_SIZE: usize = 128;
+
+static BUILD_TIME: LazyLock<chrono::DateTime<chrono::Utc>> = LazyLock::new(|| chrono::Utc::now());
+
+macro_rules! cargo_build_time {
+    () => {
+        BUILD_TIME.to_rfc3339()
+    };
+}
 
 #[wasm_bindgen]
 impl Game {
@@ -44,11 +54,16 @@ impl Game {
             universe: Universe::new(GRID_SIZE, GRID_SIZE),
             keys: HashSet::new(),
             shoot_color: Color::hsv(90.0, 1.0, 1.0),
+            hasher: PermutationTable::new(1),
         }
     }
 
     pub fn pixels(&self) -> *const u32 {
         self.pixels.as_ptr()
+    }
+
+    pub fn version(&self) -> String {
+        cargo_build_time!()
     }
 
     pub fn tick(&mut self) {
@@ -62,7 +77,6 @@ impl Game {
     }
 
     pub fn render(&mut self) -> () {
-        let hasher = PermutationTable::new(1);
         self.pixels.fill(0xFFFFFF);
 
         let w = self.width as i32;
@@ -75,48 +89,12 @@ impl Game {
             .pos
             .round()
             .minus(render_offset);
-
         let get_res = self
             .universe
             .cells
             .get_range(base_pos, base_pos.plus(V2i::new(w, h)));
         for res in get_res.iter() {
-            let cell_ref = res.1.clone();
-            let pos = res.0;
-            let pixel_pos = pos.minus(base_pos);
-
-            let pixel_idx = (pixel_pos.y * w + pixel_pos.x) as usize;
-            match cell_ref {
-                Some(cell) => {
-                    let cell = cell.borrow();
-                    self.pixels[pixel_idx] = if cell.inertia.collision_stats > 0 {
-                        0xFF0000
-                    } else {
-                        cell.color.to_u32()
-                    }
-                }
-                None => {
-                    let depth = pos.y - h;
-
-                    self.pixels[pixel_idx] = if depth >= 0 {
-                        // underground - deeper is darker
-                        let value = (255.0 / ((depth + 2) as f64).powf(0.5)) as u32;
-                        value + (value << 8) + (value << 16)
-                    } else {
-                        let altitude = -depth as f64;
-                        // generate clouds
-                        let posv = pos.to_v2().plus(V2::new(0.5, 0.7)).cmul(0.01);
-                        let noise2 = perlin_2d(Vector2::new(posv.y * 10.0, posv.x * 10.0), &hasher);
-                        let noise = perlin_2d(Vector2::new(posv.x, posv.y), &hasher);
-                        if (0.2 + 0.9 / (altitude / 10.0)) < noise2 * noise {
-                            0xFFFFFF
-                        } else {
-                            // above ground - sky
-                            0xCCCCFF
-                        }
-                    }
-                }
-            }
+            self.render_cell(res, base_pos);
         }
         self.universe.player.render(
             &mut self.pixels,
@@ -124,6 +102,48 @@ impl Game {
             self.width,
             self.height,
         );
+    }
+
+    fn render_cell(&mut self, res: &(V2i, Option<grid::GridCellRef<Cell>>), base_pos: V2i) {
+        let cell_ref = res.1.clone();
+        let pos = res.0;
+        let pixel_pos = pos.minus(base_pos);
+        let w = self.width as i32;
+        let pixel_idx = (pixel_pos.y * w + pixel_pos.x) as usize;
+        match cell_ref {
+            Some(cell) => {
+                let cell = cell.borrow();
+                self.pixels[pixel_idx] = if cell.inertia.collision_stats > 0 {
+                    0xFF0000
+                } else {
+                    cell.color.to_u32()
+                }
+            }
+            None => {
+                self.pixels[pixel_idx] = self.render_background(pos);
+            }
+        }
+    }
+
+    fn render_background(&self, pos: V2i) -> u32 {
+        let hasher = &self.hasher;
+        let depth = pos.y - (self.height as i32);
+        if depth >= 0 {
+            // underground - deeper is darker
+            let value = (255.0 / ((depth + 2) as f64).powf(0.5)) as u32;
+            value + (value << 8) + (value << 16)
+        } else {
+            let altitude = -depth as f64;
+            // generate clouds
+            let posv = pos.to_v2().plus(V2::new(0.5, 0.7)).cmul(0.01);
+            let noise2 = perlin_2d(Vector2::new(posv.y * 10.0, posv.x * 10.0), hasher);
+            let noise = perlin_2d(Vector2::new(posv.x, posv.y), hasher);
+            if (0.2 + 0.9 / (altitude / 10.0)) < noise2 * noise {
+                0xFFFFFF
+            } else {
+                0xCCCCFF
+            }
+        }
     }
 
     pub fn key_down(&mut self, key: String) {
