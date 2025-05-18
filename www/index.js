@@ -17,8 +17,7 @@ const cells_count = document.getElementById("cells-count");
 const collisions_count = document.getElementById("collisions-count");
 const collision_pairs_tested = document.getElementById("collision-pairs-tested");
 const touches = document.getElementById("touches");
-
-let shift_down = false;
+const dig_checkbox = document.getElementById("dig-checkbox");
 
 canvas.height = (CELL_SIZE) * height + 1;
 canvas.width = (CELL_SIZE) * width + 1;
@@ -96,23 +95,21 @@ window.addEventListener('blur', function (event) {
     game.unfocus();
 });
 
+let is_shift_down = () => {
+    return dig_checkbox.checked;
+
+};
+
 document.onkeydown = (e) => {
-    let key = shift_down ? e.key.toUpperCase() : e.key;
+    let key = is_shift_down ? e.key.toUpperCase() : e.key;
     touches.textContent = key;
     game.key_down(key);
 };
 
 document.onkeyup = (e) => {
-    let key = shift_down ? e.key.toUpperCase() : e.key;
+    let key = is_shift_down ? e.key.toUpperCase() : e.key;
     touches.textContent = key;
     game.key_up(key);
 };
 
 document.game = game;
-
-document.shift_down = () => {
-    shift_down = true;
-}
-document.shift_up = () => {
-    shift_down = false;
-}   

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html style="overflow: hidden; height: 100%; margin: 0; padding: 0;">
 
 <head>
   <meta charset="utf-8" name="viewport"
@@ -19,75 +19,141 @@
 
     }
 
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
       position: absolute;
+      background: linear-gradient(to bottom right, #4a0e4e, #000000);
       top: 0;
       left: 0;
-      color: #fff;
-      height: 95%;
-      width: 95%;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-direction: column;
       font-family: monospace;
-
     }
 
-    .container {
-      width: 60%;
-      max-width: 500px;
-    }
+    .container {}
 
     .move-button {
       width: 50px;
       height: 50px;
       font-size: 16px;
       margin: 5px;
+      border-radius: 0px;
+    }
+
+    .move-button:active {
+      background-color: #f00;
+      /* Change color when pressed */
+    }
+
+    .checkbox-button {
+      display: inline-block;
+      padding: 10px 15px;
+      background-color: #4CAF50;
+      color: white;
+      text-align: center;
+      text-decoration: none;
+      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .debug-panel {
+      background-color: #000;
+      color: #fff;
+      padding: 10px;
+      border-radius: 0px;
+      margin-top: 10px;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 8px;
+      width: calc(min(90vw, 90vh));
+      max-width: 500px;
+      position: relative;
+    }
+
+    .game-canvas {
+      background-color: #000;
+      border: 2px solid #888;
+      width: min(90vw, 90vh);
+      height: min(90vw, 90vh);
+      max-width: 500px;
+      max-height: 500px;
+      position: relative;
+      margin-bottom: 20px;
     }
   </style>
 </head>
 
-<body class="checkerboard">
+<body>
   <noscript>This page contains webassembly and javascript content, please enable javascript in your browser.</noscript>
   <div class="container">
-    <canvas id="the-canvas" style="width:100%"></canvas>
+    <canvas id="the-canvas" class="game-canvas"></canvas>
     <div style="justify-content: left; align-items: left;">
-      <div>ROCKIES - <a href="https://github.com/sinelaw/rockies/">github.com/sinelaw/rockies</a></div>
-      <div>Version: <span id="version"></span></div>
-      <div><strong>Keys: wasd - move, space - shoot, shift - dig, 0-9 - select color</strong></div>
-      <div>Try: shift + s (dig down), shift + a (dig left), w (fly)</div>
-      <div>Ticks: <span id="ticks"></span></div>
-      <div>Cells: <span id="cells-count"></span></div>
-      <div>Collisions: <span id="collisions-count"></span></div>
-      <div>Collision pairs tested: <span id="collision-pairs-tested"></span></div>
-      <div><span id="touches"></span></div>
+
 
       <div style="display: flex; flex-direction: column; align-items: center;">
         <div style="display: flex;">
+          <button class="move-button" onmousedown="game.key_down('w'); game.key_down('a')"
+            onmouseup="game.key_up('w'); game.key_up('a')" ontouchstart="game.key_down('w'); game.key_down('a')"
+            ontouchend="game.key_up('w'); game.key_up('a')">w+a</button>
           <button class="move-button" onmousedown="game.key_down('w')" onmouseup="game.key_up('w')"
             ontouchstart="game.key_down('w')" ontouchend="game.key_up('w')">w</button>
+          <button class="move-button" onmousedown="game.key_down('w'); game.key_down('d')"
+            onmouseup="game.key_up('w'); game.key_up('d')" ontouchstart="game.key_down('w'); game.key_down('d')"
+            ontouchend="game.key_up('w'); game.key_up('d')">w+d</button>
         </div>
         <div style="display: flex;">
           <button class="move-button" onmousedown="game.key_down('a')" onmouseup="game.key_up('a')"
             ontouchstart="game.key_down('a')" ontouchend="game.key_up('a')">a</button>
-          <button class="move-button" onmousedown="game.key_down('s')" onmouseup="game.key_up('s')"
-            ontouchstart="game.key_down('s')" ontouchend="game.key_up('s')">s</button>
+          <button class="move-button" style="visibility: hidden;"> </button>
           <button class="move-button" onmousedown="game.key_down('d')" onmouseup="game.key_up('d')"
             ontouchstart="game.key_down('d')" ontouchend="game.key_up('d')">d</button>
         </div>
         <div style="display: flex;">
+          <button class="move-button" onmousedown="game.key_down('s'); game.key_down('a')"
+            onmouseup="game.key_up('s'); game.key_up('a')" ontouchstart="game.key_down('s'); game.key_down('a')"
+            ontouchend="game.key_up('s'); game.key_up('a')">s+a</button>
+          <button class="move-button" onmousedown="game.key_down('s')" onmouseup="game.key_up('s')"
+            ontouchstart="game.key_down('s')" ontouchend="game.key_up('s')">s</button>
+          <button class="move-button" onmousedown="game.key_down('s'); game.key_down('d')"
+            onmouseup="game.key_up('s'); game.key_up('d')" ontouchstart="game.key_down('s'); game.key_down('d')"
+            ontouchend="game.key_up('s'); game.key_up('d')">s+d</button>
+        </div>
+        <div style="display: flex;">
           <button class="move-button" onmousedown="game.key_down(' ')" onmouseup="game.key_up(' ')"
             ontouchstart="game.key_down(' ')" ontouchend="game.key_up(' ')">shoot</button>
-          <button class="move-button" onmousedown="shift_down()" onmouseup="shift_up()" ontouchstart="shift_down()"
-            ontouchend="shift_up()">dig</button>
+
+          <button class="move-button" onmousedown="game.key_down('shift')" onmouseup="game.key_up('shift')"
+            ontouchstart="game.key_down('shift')" ontouchend="game.key_up('shift')">dig</button>
+
         </div>
 
       </div>
-    </div>
-    <script src="./bootstrap.js"></script>
 
-    <!-- <script src="//cdn.jsdelivr.net/npm/eruda"></script>
+    </div>
+  </div>
+
+  <div class="debug-panel">
+    <div>ROCKIES - <a href="https://github.com/sinelaw/rockies/">github.com/sinelaw/rockies</a></div>
+    <div><strong>Keys: space - shoot, shift - dig, 0-9 - select color</strong></div>
+    <div>Ticks: <span id="ticks"></span></div>
+    <div>Cells: <span id="cells-count"></span></div>
+    <div>Collisions: <span id="collisions-count"></span></div>
+    <div>Collision pairs tested: <span id="collision-pairs-tested"></span></div>
+    <div>Version: <span id="version"></span></div>
+    <div><span id="touches"></span></div>
+
+  </div>
+  <script src="./bootstrap.js"></script>
+  <!-- <script src="//cdn.jsdelivr.net/npm/eruda"></script>
   <script>eruda.init();</script> -->
 </body>
 
