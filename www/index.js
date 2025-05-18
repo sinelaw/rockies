@@ -100,6 +100,19 @@ let is_shift_down = () => {
 
 };
 
+document.onkeydown = (e) => {
+    let key = is_shift_down ? e.key.toUpperCase() : e.key;
+    touches.textContent = key;
+    game.key_down(key);
+};
+
+document.onkeyup = (e) => {
+    let key = is_shift_down ? e.key.toUpperCase() : e.key;
+    touches.textContent = key;
+    game.key_up(key);
+};
+
+
 document.key_down = (key) => {
     game.key_down(key);
 };
