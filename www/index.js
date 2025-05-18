@@ -16,6 +16,9 @@ const version = document.getElementById("version");
 const cells_count = document.getElementById("cells-count");
 const collisions_count = document.getElementById("collisions-count");
 const collision_pairs_tested = document.getElementById("collision-pairs-tested");
+const touches = document.getElementById("touches");
+
+let shift_down = false;
 
 canvas.height = (CELL_SIZE) * height + 1;
 canvas.width = (CELL_SIZE) * width + 1;
@@ -85,13 +88,6 @@ canvas.onclick = (e) => {
     game.click(e.offsetX / (CELL_SIZE + 1), e.offsetY / (CELL_SIZE + 1));
 };
 
-canvas.ontouchmove = (e) => {
-    e.preventDefault();
-    let x = e.touches[0].clientX - canvas.offsetLeft;
-    let y = e.touches[0].clientY - canvas.offsetTop;
-    game.click(x / (CELL_SIZE + 1), y / (CELL_SIZE + 1));
-};
-
 canvas.addEventListener('blur', function (event) {
     game.unfocus();
 });
@@ -101,9 +97,22 @@ window.addEventListener('blur', function (event) {
 });
 
 document.onkeydown = (e) => {
-    game.key_down(e.key);
+    let key = shift_down ? e.key.toUpperCase() : e.key;
+    touches.textContent = key;
+    game.key_down(key);
 };
 
 document.onkeyup = (e) => {
-    game.key_up(e.key);
+    let key = shift_down ? e.key.toUpperCase() : e.key;
+    touches.textContent = key;
+    game.key_up(key);
 };
+
+document.game = game;
+
+document.shift_down = () => {
+    shift_down = true;
+}
+document.shift_up = () => {
+    shift_down = false;
+}   

@@ -2,7 +2,9 @@
 <html>
 
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
   <title>ROCKIES!! 🐹</title>
   <style>
     .checkerboard {
@@ -36,6 +38,13 @@
       width: 60%;
       max-width: 500px;
     }
+
+    .move-button {
+      width: 50px;
+      height: 50px;
+      font-size: 16px;
+      margin: 5px;
+    }
   </style>
 </head>
 
@@ -48,14 +57,37 @@
       <div>Version: <span id="version"></span></div>
       <div><strong>Keys: wasd - move, space - shoot, shift - dig, 0-9 - select color</strong></div>
       <div>Try: shift + s (dig down), shift + a (dig left), w (fly)</div>
-      <div>Ticks: <span id="ticks"></span> Cells: <span id="cells-count"></span> Collisions: <span
-          id="collisions-count"></span></div>
+      <div>Ticks: <span id="ticks"></span></div>
+      <div>Cells: <span id="cells-count"></span></div>
+      <div>Collisions: <span id="collisions-count"></span></div>
       <div>Collision pairs tested: <span id="collision-pairs-tested"></span></div>
-    </div>
-  </div>
-  <script src="./bootstrap.js"></script>
+      <div><span id="touches"></span></div>
 
-  <!-- <script src="//cdn.jsdelivr.net/npm/eruda"></script>
+      <div style="display: flex; flex-direction: column; align-items: center;">
+        <div style="display: flex;">
+          <button class="move-button" onmousedown="game.key_down('w')" onmouseup="game.key_up('w')"
+            ontouchstart="game.key_down('w')" ontouchend="game.key_up('w')">w</button>
+        </div>
+        <div style="display: flex;">
+          <button class="move-button" onmousedown="game.key_down('a')" onmouseup="game.key_up('a')"
+            ontouchstart="game.key_down('a')" ontouchend="game.key_up('a')">a</button>
+          <button class="move-button" onmousedown="game.key_down('s')" onmouseup="game.key_up('s')"
+            ontouchstart="game.key_down('s')" ontouchend="game.key_up('s')">s</button>
+          <button class="move-button" onmousedown="game.key_down('d')" onmouseup="game.key_up('d')"
+            ontouchstart="game.key_down('d')" ontouchend="game.key_up('d')">d</button>
+        </div>
+        <div style="display: flex;">
+          <button class="move-button" onmousedown="game.key_down(' ')" onmouseup="game.key_up(' ')"
+            ontouchstart="game.key_down(' ')" ontouchend="game.key_up(' ')">shoot</button>
+          <button class="move-button" onmousedown="shift_down()" onmouseup="shift_up()" ontouchstart="shift_down()"
+            ontouchend="shift_up()">dig</button>
+        </div>
+
+      </div>
+    </div>
+    <script src="./bootstrap.js"></script>
+
+    <!-- <script src="//cdn.jsdelivr.net/npm/eruda"></script>
   <script>eruda.init();</script> -->
 </body>
 
