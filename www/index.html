@@ -27,9 +27,18 @@
       padding: 0;
     }
 
+    @keyframes gridMove {
+      0% {
+        background-position: 0 0;
+      }
+
+      100% {
+        background-position: 50px 50px;
+      }
+    }
+
     body {
       position: absolute;
-      background: linear-gradient(to bottom right, #4a0e4e, #000000);
       top: 0;
       left: 0;
       display: flex;
@@ -37,6 +46,29 @@
       justify-content: center;
       flex-direction: column;
       font-family: monospace;
+      background-color: #000;
+      background-image:
+        linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(rgba(255, 0, 255, 0.02) 2px, transparent 2px),
+        linear-gradient(90deg, rgba(255, 0, 255, 0.02) 2px, transparent 2px);
+      background-size: 25px 25px, 25px 25px, 100px 100px, 100px 100px;
+      animation: gridMove 30s linear infinite;
+      overflow: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at 50% 50%,
+          rgba(40, 10, 60, 0.8) 0%,
+          rgba(10, 5, 15, 0.9) 90%,
+          rgba(0, 0, 0, 1) 100%);
+      pointer-events: none;
     }
 
     .container {}
@@ -44,14 +76,27 @@
     .move-button {
       width: 50px;
       height: 50px;
-      font-size: 16px;
+      font-size: 14px;
       margin: 5px;
-      border-radius: 0px;
+      border-radius: 8px;
+      background: linear-gradient(145deg, #2a2a2a, #3a3a3a);
+      border: 2px solid #444;
+      color: #fff;
+      text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+      box-shadow: 0 0 10px rgba(0, 255, 255, 0.1),
+        inset 0 0 5px rgba(0, 255, 255, 0.1);
+      transition: all 0.1s ease;
+      cursor: pointer;
+      font-family: 'Courier New', monospace;
+      font-weight: bold;
+      text-transform: uppercase;
     }
 
     .move-button:active {
-      background-color: #f00;
-      /* Change color when pressed */
+      background: linear-gradient(145deg, #1a1a1a, #2a2a2a);
+      box-shadow: 0 0 15px rgba(0, 255, 255, 0.2),
+        inset 0 0 10px rgba(0, 255, 255, 0.2);
+      transform: scale(0.95);
     }
 
     .checkbox-button {
@@ -68,7 +113,7 @@
 
     .debug-panel {
       background-color: #000;
-      color: #fff;
+      color: #0f0;
       padding: 10px;
       border-radius: 0px;
       margin-top: 10px;
@@ -79,15 +124,61 @@
       position: relative;
     }
 
+    @keyframes scanline {
+      0% {
+        background-position: 0 0;
+      }
+
+      100% {
+        background-position: 0 100%;
+      }
+    }
+
     .game-canvas {
       background-color: #000;
-      border: 2px solid #888;
       width: min(90vw, 90vh);
       height: min(90vw, 90vh);
       max-width: 500px;
       max-height: 500px;
       position: relative;
       margin-bottom: 20px;
+      border: 16px solid #1a1a1a;
+      border-radius: 10px;
+      box-shadow:
+        inset 0 0 10px rgba(0, 255, 0, 0.1),
+        0 0 20px rgba(0, 255, 0, 0.15),
+        0 0 40px rgba(0, 0, 0, 0.5);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .game-canvas::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(transparent 50%,
+          rgba(0, 0, 0, 0.05) 50%);
+      background-size: 100% 4px;
+      animation: scanline 10s linear infinite;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .game-canvas::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: radial-gradient(circle at center,
+          transparent 0%,
+          rgba(0, 0, 0, 0.2) 90%);
+      pointer-events: none;
+      z-index: 2;
     }
   </style>
 </head>
@@ -129,10 +220,10 @@
         </div>
         <div style="display: flex;">
           <button class="move-button" onmousedown="game.key_down(' ')" onmouseup="game.key_up(' ')"
-            ontouchstart="game.key_down(' ')" ontouchend="game.key_up(' ')">shoot</button>
+            ontouchstart="game.key_down(' ')" ontouchend="game.key_up(' ')">space</button>
 
           <button class="move-button" onmousedown="game.key_down('shift')" onmouseup="game.key_up('shift')"
-            ontouchstart="game.key_down('shift')" ontouchend="game.key_up('shift')">dig</button>
+            ontouchstart="game.key_down('shift')" ontouchend="game.key_up('shift')">shift</button>
 
         </div>
 
@@ -145,11 +236,11 @@
     <div>ROCKIES - <a href="https://github.com/sinelaw/rockies/">github.com/sinelaw/rockies</a></div>
     <div><strong>Keys: space - shoot, shift - dig, 0-9 - select color</strong></div>
     <div>Ticks: <span id="ticks"></span></div>
-    <div>Cells: <span id="cells-count"></span></div>
-    <div>Collisions: <span id="collisions-count"></span></div>
-    <div>Collision pairs tested: <span id="collision-pairs-tested"></span></div>
+    <div>Cells: <span id="cells-count"></span> Collisions: <span id="collisions-count"></span> Collision pairs tested:
+      <span id="collision-pairs-tested"></span>
+    </div>
     <div>Version: <span id="version"></span></div>
-    <div><span id="touches"></span></div>
+    <div>- <span id="touches"></span> - </div>
 
   </div>
   <script src="./bootstrap.js"></script>
