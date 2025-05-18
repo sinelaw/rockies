@@ -148,37 +148,52 @@
         inset 0 0 10px rgba(0, 255, 0, 0.1),
         0 0 20px rgba(0, 255, 0, 0.15),
         0 0 40px rgba(0, 0, 0, 0.5);
-      position: relative;
-      overflow: hidden;
     }
 
-    .game-canvas::before {
-      content: "";
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: linear-gradient(transparent 50%,
-          rgba(0, 0, 0, 0.05) 50%);
-      background-size: 100% 4px;
-      animation: scanline 10s linear infinite;
-      pointer-events: none;
+    #the-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      position: relative;
       z-index: 1;
     }
 
-    .game-canvas::after {
+    /* Create a wrapper for the CRT effects */
+    .crt-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .crt-overlay::before {
       content: "";
       position: absolute;
       top: 0;
       left: 0;
-      right: 0;
-      bottom: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%,
+          rgba(0, 0, 0, 0.4) 50%);
+      background-size: 100% 4px;
+      animation: scanline 8s linear infinite;
+      opacity: 0.4;
+    }
+
+    .crt-overlay::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       background: radial-gradient(circle at center,
           transparent 0%,
-          rgba(0, 0, 0, 0.2) 90%);
-      pointer-events: none;
-      z-index: 2;
+          rgba(0, 0, 0, 0.4) 90%);
+      opacity: 0.5;
     }
   </style>
 </head>
@@ -186,7 +201,10 @@
 <body>
   <noscript>This page contains webassembly and javascript content, please enable javascript in your browser.</noscript>
   <div class="container">
-    <canvas id="the-canvas" class="game-canvas"></canvas>
+    <div class="game-canvas">
+      <canvas id="the-canvas"></canvas>
+      <div class="crt-overlay"></div>
+    </div>
     <div style="justify-content: left; align-items: left;">
 
 
