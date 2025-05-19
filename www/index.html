@@ -73,8 +73,15 @@
 
     .container {}
 
-    .move-button {
+    .move-button-wide {
+      width: 75px;
+    }
+
+    .move-button-small {
       width: 50px;
+    }
+
+    .move-button {
       height: 50px;
       font-size: 14px;
       margin: 5px;
@@ -90,6 +97,11 @@
       font-family: 'Courier New', monospace;
       font-weight: bold;
       text-transform: uppercase;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
     }
 
     .move-button:active {
@@ -210,33 +222,37 @@
 
       <div style="display: flex; flex-direction: column; align-items: center;">
         <div style="display: flex;">
-          <button class="move-button" onmousedown="key_down('w'); key_down('a')" onmouseup="key_up('w'); key_up('a')"
-            ontouchstart="key_down('w'); key_down('a')" ontouchend="key_up('w'); key_up('a')">w+a</button>
-          <button class="move-button" onmousedown="key_down('w')" onmouseup="key_up('w')" ontouchstart="key_down('w')"
-            ontouchend="key_up('w')">w</button>
-          <button class="move-button" onmousedown="key_down('w'); key_down('d')" onmouseup="key_up('w'); key_up('d')"
-            ontouchstart="key_down('w'); key_down('d')" ontouchend="key_up('w'); key_up('d')">w+d</button>
+          <button class="move-button move-button-small onmousedown=" key_down('w'); key_down('a')"
+            onmouseup="key_up('w'); key_up('a')" ontouchstart="key_down('w'); key_down('a')"
+            ontouchend="key_up('w'); key_up('a')">w+a</button>
+          <button class="move-button move-button-small" onmousedown="key_down('w')" onmouseup="key_up('w')"
+            ontouchstart="key_down('w')" ontouchend="key_up('w')">w</button>
+          <button class="move-button move-button-small" onmousedown="key_down('w'); key_down('d')"
+            onmouseup="key_up('w'); key_up('d')" ontouchstart="key_down('w'); key_down('d')"
+            ontouchend="key_up('w'); key_up('d')">w+d</button>
         </div>
         <div style="display: flex;">
-          <button class="move-button" onmousedown="key_down('a')" onmouseup="key_up('a')" ontouchstart="key_down('a')"
-            ontouchend="key_up('a')">a</button>
-          <button class="move-button" style="visibility: hidden;"> </button>
-          <button class="move-button" onmousedown="key_down('d')" onmouseup="key_up('d')" ontouchstart="key_down('d')"
-            ontouchend="key_up('d')">d</button>
+          <button class="move-button move-button-small" onmousedown="key_down('a')" onmouseup="key_up('a')"
+            ontouchstart="key_down('a')" ontouchend="key_up('a')">a</button>
+          <button class="move-button move-button-small" style="visibility: hidden;"> </button>
+          <button class="move-button move-button-small" onmousedown="key_down('d')" onmouseup="key_up('d')"
+            ontouchstart="key_down('d')" ontouchend="key_up('d')">d</button>
         </div>
         <div style="display: flex;">
-          <button class="move-button" onmousedown="key_down('s'); key_down('a')" onmouseup="key_up('s'); key_up('a')"
-            ontouchstart="key_down('s'); key_down('a')" ontouchend="key_up('s'); key_up('a')">s+a</button>
-          <button class="move-button" onmousedown="key_down('s')" onmouseup="key_up('s')" ontouchstart="key_down('s')"
-            ontouchend="key_up('s')">s</button>
-          <button class="move-button" onmousedown="key_down('s'); key_down('d')" onmouseup="key_up('s'); key_up('d')"
-            ontouchstart="key_down('s'); key_down('d')" ontouchend="key_up('s'); key_up('d')">s+d</button>
+          <button class="move-button move-button-small" onmousedown="key_down('s'); key_down('a')"
+            onmouseup="key_up('s'); key_up('a')" ontouchstart="key_down('s'); key_down('a')"
+            ontouchend="key_up('s'); key_up('a')">s+a</button>
+          <button class="move-button move-button-small" onmousedown="key_down('s')" onmouseup="key_up('s')"
+            ontouchstart="key_down('s')" ontouchend="key_up('s')">s</button>
+          <button class="move-button move-button-small" onmousedown="key_down('s'); key_down('d')"
+            onmouseup="key_up('s'); key_up('d')" ontouchstart="key_down('s'); key_down('d')"
+            ontouchend="key_up('s'); key_up('d')">s+d</button>
         </div>
         <div style="display: flex;">
-          <button class="move-button" onmousedown="key_down(' ')" onmouseup="key_up(' ')" ontouchstart="key_down(' ')"
-            ontouchend="key_up(' ')">space</button>
+          <button class="move-button move-button-wide" onmousedown="key_down(' ')" onmouseup="key_up(' ')"
+            ontouchstart="key_down(' ')" ontouchend="key_up(' ')">space</button>
 
-          <button class="move-button" onmousedown="key_down('shift')" onmouseup="key_up('shift')"
+          <button class="move-button move-button-wide" onmousedown="key_down('shift')" onmouseup="key_up('shift')"
             ontouchstart="key_down('shift')" ontouchend="key_up('shift')">shift</button>
 
         </div>
@@ -247,7 +263,7 @@
   </div>
 
   <div class="debug-panel">
-    <div>ROCKIES - <a href="https://github.com/sinelaw/rockies/">github.com/sinelaw/rockies</a></div>
+    <div>ROCKIES!! 🐹</div>
     <div><strong>Keys: space - shoot, shift - dig, 0-9 - select color</strong></div>
     <div>Ticks: <span id="ticks"></span></div>
     <div>Cells: <span id="cells-count"></span> Collisions: <span id="collisions-count"></span> Collision pairs tested:
