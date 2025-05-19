@@ -100,6 +100,7 @@ let is_shift_down = () => {
 
 };
 
+// Handle keyboard events
 document.onkeydown = (e) => {
     let key = is_shift_down ? e.key.toUpperCase() : e.key;
     touches.textContent = key;
@@ -112,11 +113,41 @@ document.onkeyup = (e) => {
     game.key_up(key);
 };
 
+// Setup control buttons
+const setupControlButtons = () => {
+    const buttons = document.querySelectorAll('.move-button');
 
-document.key_down = (key) => {
-    game.key_down(key);
+    buttons.forEach(button => {
+        if (!button.dataset.keys) return; // Skip buttons without key mappings
+
+        const keys = button.dataset.keys.split(',');
+
+        const pressKeys = () => keys.forEach(key => game.key_down(key));
+        const releaseKeys = () => keys.forEach(key => game.key_up(key));
+
+        // Mouse events
+        button.addEventListener('mousedown', pressKeys);
+        button.addEventListener('mouseup', releaseKeys);
+        button.addEventListener('mouseleave', releaseKeys);
+
+        // Touch events
+        button.addEventListener('touchstart', (e) => {
+            e.preventDefault(); // Prevent double-firing on mobile
+            pressKeys();
+        });
+        button.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            releaseKeys();
+        });
+        button.addEventListener('touchcancel', (e) => {
+            e.preventDefault();
+            releaseKeys();
+        });
+
+        // Blur event (when button loses focus)
+        button.addEventListener('blur', releaseKeys);
+    });
 };
 
-document.key_up = (key) => {
-    game.key_up(key);
-};
+// Initialize controls
+setupControlButtons();
