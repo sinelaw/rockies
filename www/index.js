@@ -148,7 +148,13 @@ let shiftToggled = false;
 // Helper function to normalize key names
 const normalizeKey = (key) => {
     key = key.toLowerCase();
-    if (key === ' ') return 'space';
+    switch (key) {
+        case 'arrowup': return 'w';
+        case 'arrowdown': return 's';
+        case 'arrowleft': return 'a';
+        case 'arrowright': return 'd';
+        case ' ': return ' ';
+    }
     return key;
 };
 
@@ -176,7 +182,7 @@ document.onkeydown = (e) => {
     const key = normalizeKey(e.key);
     pressedKeys.add(key);
     touches.textContent = key;
-    game.key_down(e.key);
+    game.key_down(key);
     updateAllButtonStates();
 };
 
@@ -184,7 +190,7 @@ document.onkeyup = (e) => {
     const key = normalizeKey(e.key);
     pressedKeys.delete(key);
     touches.textContent = key;
-    game.key_up(e.key);
+    game.key_up(key);
     updateAllButtonStates();
 };
 
