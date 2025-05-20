@@ -73,56 +73,6 @@
 
     .container {}
 
-    .move-button-wide {
-      width: 75px;
-    }
-
-    .move-button-small {
-      width: 50px;
-    }
-
-    .move-button {
-      height: 50px;
-      font-size: 14px;
-      margin: 5px;
-      border-radius: 8px;
-      background: linear-gradient(145deg, #3a3a3a, #4a4a4a);
-      border: 2px solid #444;
-      color: #fff;
-      text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
-      box-shadow: 0 0 10px rgba(0, 255, 255, 0.1),
-        inset 0 0 5px rgba(0, 255, 255, 0.1);
-      transition: all 0.1s ease;
-      cursor: pointer;
-      font-family: 'Courier New', monospace;
-      font-weight: bold;
-      text-transform: uppercase;
-      -webkit-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
-      user-select: none;
-      -webkit-touch-callout: none;
-    }
-
-    .move-button:active {
-      background: linear-gradient(145deg, #1a1a1a, #2a2a2a);
-      box-shadow: 0 0 15px rgba(0, 255, 255, 0.2),
-        inset 0 0 10px rgba(0, 255, 255, 0.2);
-      transform: scale(0.95);
-    }
-
-    .checkbox-button {
-      display: inline-block;
-      padding: 10px 15px;
-      background-color: #4CAF50;
-      color: white;
-      text-align: center;
-      text-decoration: none;
-      font-size: 16px;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-
     .debug-panel {
       background-color: #000;
       color: #0f0;
@@ -207,6 +157,86 @@
           rgba(0, 0, 0, 0.4) 90%);
       opacity: 0.5;
     }
+
+    .move-button-wide {
+      width: 75px;
+    }
+
+    .move-button-small {
+      width: 50px;
+    }
+
+    .move-button {
+      height: 50px;
+      font-size: 14px;
+      margin: 5px;
+      border-radius: 8px;
+      background: linear-gradient(145deg, #3a3a3a, #4a4a4a);
+      border: 2px solid #88a;
+      color: #fff;
+      text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+      box-shadow: 0 0 10px rgba(0, 255, 255, 0.1),
+        inset 0 0 5px rgba(0, 255, 255, 0.1);
+      transition: all 0.1s ease;
+      cursor: pointer;
+      font-family: 'Courier New', monospace;
+      font-weight: bold;
+      text-transform: uppercase;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    .move-button:active,
+    .move-button.active {
+      background: linear-gradient(145deg, #1a1a1a, #2a2a2a);
+      transform: scale(0.95);
+      border-color: #0ff;
+    }
+
+    .checkbox-button {
+      display: inline-block;
+      padding: 10px 15px;
+      background-color: #4CAF50;
+      color: white;
+      text-align: center;
+      text-decoration: none;
+      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .move-button-checkbox {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Style the label to look like our button */
+    label.move-button {
+      color: #fff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Use the checkbox:checked state for highlighting */
+    label.move-button:has(.move-button-checkbox:checked) {
+      background: linear-gradient(145deg, #1a1a1a, #2a2a2a);
+      transform: scale(0.95);
+      border-color: #0ff;
+    }
+
+    /* Focus styles for keyboard navigation */
+    label.move-button:has(.move-button-checkbox:focus-visible) {
+      outline: 2px solid #0ff;
+      outline-offset: 2px;
+    }
   </style>
 </head>
 
@@ -217,28 +247,36 @@
       <canvas id="the-canvas"></canvas>
       <div class="crt-overlay"></div>
     </div>
-    <div style="justify-content: left; align-items: left;">
+    <div style="justify-content: center; align-items: center; display: flex;">
 
 
-      <div style="display: flex; flex-direction: column; align-items: center;">
-        <div style="display: flex;">
-          <button class="move-button move-button-small" data-keys="w,a">w+a</button>
-          <button class="move-button move-button-small" data-keys="w">w</button>
-          <button class="move-button move-button-small" data-keys="w,d">w+d</button>
+      <div style="display: flex; align-items: flex-start; gap: 20px;">
+        <!-- WASD Controls -->
+        <div style="display: flex; flex-direction: column;">
+          <div style="display: flex;">
+            <button class="move-button move-button-small" data-keys="w,a">w+a</button>
+            <button class="move-button move-button-small" data-keys="w">w</button>
+            <button class="move-button move-button-small" data-keys="w,d">w+d</button>
+          </div>
+          <div style="display: flex;">
+            <button class="move-button move-button-small" data-keys="a">a</button>
+            <button class="move-button move-button-small" style="visibility: hidden;"> </button>
+            <button class="move-button move-button-small" data-keys="d">d</button>
+          </div>
+          <div style="display: flex;">
+            <button class="move-button move-button-small" data-keys="s,a">s+a</button>
+            <button class="move-button move-button-small" data-keys="s">s</button>
+            <button class="move-button move-button-small" data-keys="s,d">s+d</button>
+          </div>
         </div>
-        <div style="display: flex;">
-          <button class="move-button move-button-small" data-keys="a">a</button>
-          <button class="move-button move-button-small" style="visibility: hidden;"> </button>
-          <button class="move-button move-button-small" data-keys="d">d</button>
-        </div>
-        <div style="display: flex;">
-          <button class="move-button move-button-small" data-keys="s,a">s+a</button>
-          <button class="move-button move-button-small" data-keys="s">s</button>
-          <button class="move-button move-button-small" data-keys="s,d">s+d</button>
-        </div>
-        <div style="display: flex;">
+
+        <!-- Action Buttons -->
+        <div style="display: flex; flex-direction: column; justify-content: center;">
           <button class="move-button move-button-wide" data-keys=" ">space</button>
-          <button class="move-button move-button-wide" data-keys="shift">shift</button>
+          <label class="move-button move-button-wide">
+            <input type="checkbox" class="move-button-checkbox" data-keys="shift">
+            <span>shift</span>
+          </label>
         </div>
 
       </div>

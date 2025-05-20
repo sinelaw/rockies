@@ -100,28 +100,130 @@ let is_shift_down = () => {
 
 };
 
+// Helper function to find buttons by key
+const findButtonsByKey = (key) => {
+    return Array.from(document.querySelectorAll('.move-button, .move-button-checkbox')).filter(el => {
+        const keys = (el.dataset.keys || '').split(',');
+        return keys.includes(key.toLowerCase());
+    });
+};
+
+// Helper functions to activate/deactivate buttons
+const activateButton = (button) => {
+    if (button.classList.contains('move-button-checkbox')) {
+        if (!button.dataset.keys) return; // Skip buttons without key mappings
+        const keys = button.dataset.keys.split(',');
+        keys.forEach(key => {
+            if (pressedKeys.has(key)) {
+                button.checked = true;
+            }
+        });
+        // Trigger the change event so handlers are notified
+        button.dispatchEvent(new Event('change'));
+    } else {
+        button.classList.add('active');
+    }
+};
+
+const deactivateButton = (button) => {
+    if (button.classList.contains('move-button-checkbox')) {
+        if (!button.dataset.keys) return; // Skip buttons without key mappings
+        const keys = button.dataset.keys.split(',');
+        keys.forEach(key => {
+            if (!pressedKeys.has(key)) {
+                button.checked = false;
+            }
+        });
+        // Trigger the change event so handlers are notified
+        button.dispatchEvent(new Event('change'));
+    } else {
+        button.classList.remove('active');
+    }
+};
+
+// Track currently pressed keys
+const pressedKeys = new Set();
+let shiftToggled = false;
+
+// Helper function to normalize key names
+const normalizeKey = (key) => {
+    key = key.toLowerCase();
+    if (key === ' ') return 'space';
+    return key;
+};
+
+const findButtonElements = () => {
+    return Array.from(document.querySelectorAll('.move-button, .move-button-checkbox'));
+};
+
+// Update all button states based on currently pressed keys
+const updateAllButtonStates = () => {
+    const elems = findButtonElements();
+
+    elems.filter(el => {
+        const buttonKeys = (el.dataset.keys || '').split(',').map(k => normalizeKey(k));
+        // For combination buttons (e.g. w+a)
+        if (buttonKeys.every(key => pressedKeys.has(key))) {
+            activateButton(el);
+        } else {
+            deactivateButton(el);
+        }
+    });
+};
+
 // Handle keyboard events
 document.onkeydown = (e) => {
-    let key = is_shift_down ? e.key.toUpperCase() : e.key;
+    const key = normalizeKey(e.key);
+    pressedKeys.add(key);
     touches.textContent = key;
-    game.key_down(key);
+    game.key_down(e.key);
+    updateAllButtonStates();
 };
 
 document.onkeyup = (e) => {
-    let key = is_shift_down ? e.key.toUpperCase() : e.key;
+    const key = normalizeKey(e.key);
+    pressedKeys.delete(key);
     touches.textContent = key;
-    game.key_up(key);
+    game.key_up(e.key);
+    updateAllButtonStates();
+};
+
+// Clear pressed keys when window loses focus
+window.onblur = () => {
+    pressedKeys.clear();
+    updateAllButtonStates();
 };
 
 // Setup control buttons
 const setupControlButtons = () => {
+    // Special handling for shift checkbox
+    const toggleButtons = document.querySelectorAll('.move-button-checkbox');
+    toggleButtons.forEach(checkbox => {
+        if (!checkbox.dataset.keys) return; // Skip buttons without key mappings
+        const keys = checkbox.dataset.keys.split(',');
+        if (keys.includes('shift')) {
+            const handleChange = () => {
+                if (checkbox.checked) {
+                    pressedKeys.add('shift');
+                    game.key_down('shift');
+                } else {
+                    pressedKeys.delete('shift');
+                    game.key_up('shift');
+                }
+            };
+
+            checkbox.addEventListener('change', handleChange);
+            return; // Skip regular event binding for shift button
+        }
+    });
+
     const buttons = document.querySelectorAll('.move-button');
 
     buttons.forEach(button => {
         if (!button.dataset.keys) return; // Skip buttons without key mappings
-
         const keys = button.dataset.keys.split(',');
 
+        console.log("Button: ", button, "Keys: ", keys);
         const pressKeys = () => keys.forEach(key => game.key_down(key));
         const releaseKeys = () => keys.forEach(key => game.key_up(key));
 
@@ -147,6 +249,8 @@ const setupControlButtons = () => {
         // Blur event (when button loses focus)
         button.addEventListener('blur', releaseKeys);
     });
+
+
 };
 
 // Initialize controls
