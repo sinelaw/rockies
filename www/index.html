@@ -55,6 +55,11 @@
       background-size: 25px 25px, 25px 25px, 100px 100px, 100px 100px;
       animation: gridMove 30s linear infinite;
       overflow: hidden;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
     }
 
     body::before {
@@ -71,8 +76,6 @@
       pointer-events: none;
     }
 
-    .container {}
-
     .debug-panel {
       background-color: #000;
       color: #0f0;
@@ -84,6 +87,11 @@
       width: calc(min(90vw, 90vh));
       max-width: 500px;
       position: relative;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
     }
 
     @keyframes scanline {
