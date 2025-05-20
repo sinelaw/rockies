@@ -9,7 +9,12 @@ module.exports = {
   },
   mode: "development",
   plugins: [
-    new CopyWebpackPlugin({ patterns: ['index.html'] })
+    new CopyWebpackPlugin({
+      patterns: [
+        'index.html',
+        'favicon.ico'
+      ]
+    })
   ],
   experiments: {
     asyncWebAssembly: true,
