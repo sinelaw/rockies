@@ -77,6 +77,7 @@ impl Game {
     }
 
     pub fn render(&mut self) -> () {
+        let is_dig_mode = self.is_dig_mode();
         self.pixels.fill(0xFFFFFF);
 
         let w = self.width as i32;
@@ -101,6 +102,7 @@ impl Game {
             self.universe.player.inertia.pos.round().minus(base_pos),
             self.width,
             self.height,
+            is_dig_mode,
         );
     }
 
@@ -159,12 +161,16 @@ impl Game {
         self.keys.clear();
     }
 
+    fn is_dig_mode(&self) -> bool {
+        self.keys.iter().any(|k| k == "shift")
+    }
+
     pub fn process_keys(&mut self) {
         let mut xs = Vec::new();
         let mut ys = Vec::new();
 
         // shift is down => dig mode
-        let is_dig_mode = self.keys.iter().any(|k| k == "shift");
+        let is_dig_mode = self.is_dig_mode();
 
         for raw_key in self.keys.iter() {
             if raw_key.len() > 1 {

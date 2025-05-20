@@ -161,6 +161,7 @@ impl Player {
         offset: V2i,
         buf_width: usize,
         buf_height: usize,
+        is_dig_mode: bool,
     ) -> () {
         let hammy_0: (usize, usize, &[Color]) = assets::HAMMY_0;
         let hammy_1: (usize, usize, &[Color]) = assets::HAMMY_1;
@@ -181,7 +182,17 @@ impl Player {
                     if c.r == 0 && c.g == 0 && c.b == 0 {
                         continue;
                     }
-                    pixels[(py as usize) * buf_width + (px as usize)] = c.to_u32();
+                    let final_color = if is_dig_mode {
+                        // make the color a bit darker
+                        Color {
+                            r: (c.r as f64 * 0.9) as u8,
+                            g: (c.g as f64 * 0.7) as u8,
+                            b: (c.b as f64 * 0.7) as u8,
+                        }
+                    } else {
+                        c
+                    };
+                    pixels[(py as usize) * buf_width + (px as usize)] = final_color.to_u32();
                 }
             }
         }
