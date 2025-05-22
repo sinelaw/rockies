@@ -5,6 +5,8 @@ pub struct Color {
     pub b: u8,
 }
 
+const U8_MAX_F: f64 = u8::MAX as f64;
+
 impl Color {
     pub fn to_u32(&self) -> u32 {
         (self.r as u32 * 256 * 256) + (self.g as u32 * 256) + self.b as u32
@@ -44,9 +46,17 @@ impl Color {
         let m = v - c;
 
         Color {
-            r: ((r + m) * 255.0) as u8,
-            g: ((g + m) * 255.0) as u8,
-            b: ((b + m) * 255.0) as u8,
+            r: ((r + m) * U8_MAX_F) as u8,
+            g: ((g + m) * U8_MAX_F) as u8,
+            b: ((b + m) * U8_MAX_F) as u8,
+        }
+    }
+
+    pub fn mix(self, tr: f64, tg: f64, tb: f64) -> Color {
+        Color {
+            r: ((self.r as f64 * tr).min(U8_MAX_F)) as u8,
+            g: ((self.g as f64 * tg).min(U8_MAX_F)) as u8,
+            b: ((self.b as f64 * tb).min(U8_MAX_F)) as u8,
         }
     }
 }

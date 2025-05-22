@@ -94,6 +94,7 @@ pub struct Player {
 
     pub frame: usize,
     pub direction: i32,
+    pub life: u32,
 }
 
 impl Player {
@@ -114,6 +115,7 @@ impl Player {
 
             direction: 1,
             frame: 0,
+            life: u32::MAX,
         }
     }
 
@@ -184,13 +186,10 @@ impl Player {
                     }
                     let final_color = if is_dig_mode {
                         // make the color a bit darker
-                        Color {
-                            r: (c.r as f64 * 0.9) as u8,
-                            g: (c.g as f64 * 0.7) as u8,
-                            b: (c.b as f64 * 0.7) as u8,
-                        }
+                        c.mix(0.9, 0.7, 0.7)
                     } else {
-                        c
+                        let sickness = self.life as f64 / u32::MAX as f64;
+                        c.mix(sickness, 1.0, sickness)
                     };
                     pixels[(py as usize) * buf_width + (px as usize)] = final_color.to_u32();
                 }
@@ -720,6 +719,9 @@ impl Universe {
             self.cells.update_pos(self.dt);
             self.zero_forces();
         }
+
+        // player gets a bit sick as time passes
+        self.player.life = self.player.life.saturating_sub(10000);
 
         //log!("{}", self.render());
     }
