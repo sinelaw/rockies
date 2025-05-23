@@ -612,6 +612,7 @@ impl UniverseCells {
             grid.put(new_pos, cell_ref.clone());
             let mut cell = cell_ref.borrow_mut();
             cell.inertia.pos = new_pos.to_v2();
+            self.moving_cells.insert(cell.index, cell_ref.clone());
         }
     }
 

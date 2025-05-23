@@ -115,13 +115,15 @@ impl Game {
             self.pixels[pixel_idx] = self.render_background(pos);
             return;
         }
+        self.pixels[pixel_idx] = 0;
         for cell_ref in res.1.iter() {
             let cell = cell_ref.borrow();
-            self.pixels[pixel_idx] = if cell.inertia.collision_stats > 0 && cell.inertia.mass > 0 {
+            let cell_color = if cell.inertia.collision_stats > 0 && cell.inertia.mass > 0 {
                 0xFF0000
             } else {
                 cell.color.to_u32()
             };
+            self.pixels[pixel_idx] = self.pixels[pixel_idx].saturating_add(cell_color);
         }
     }
 
