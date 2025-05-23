@@ -573,6 +573,7 @@ impl UniverseCells {
 
     fn correct_positions(&mut self, grid_index: GridIndex, pos: V2i) {
         // Apply position correction to prevent overlaps
+        self.ensure_grid(grid_index);
         let grid = self.grids.get(grid_index).unwrap();
         let mut moves = Vec::new();
         let mut occupied_positions = FnvHashSet::default();
