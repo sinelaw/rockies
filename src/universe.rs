@@ -575,38 +575,36 @@ impl UniverseCells {
         // Apply position correction to prevent overlaps
         self.ensure_grid(grid_index);
         let grid = self.grids.get(grid_index).unwrap();
-        let mut moves = Vec::new();
-        let mut occupied_positions = FnvHashSet::default();
 
         let get_res = grid.get(pos).clone();
+        if get_res.value.is_empty() {
+            return;
+        }
 
-        if !get_res.value.is_empty() {
-            // Keep the first cell at this position
-            occupied_positions.insert(pos);
+        let mut moves = Vec::new();
 
-            // If there are multiple cells in the same position,
-            // find an empty nearby cell for all but one of them
-            for cell_ref in get_res.value.iter().skip(1) {
-                let mut found_pos = None;
-                'outer: for nx in -1..=1 {
-                    for ny in -1..=1 {
-                        if nx == 0 && ny == 0 {
-                            continue;
-                        }
-                        let npos = pos.plus(V2i::new(nx, ny));
-                        if !grid.is_in_bounds(npos) {
-                            continue;
-                        }
-                        if occupied_positions.contains(&npos) {
-                            continue;
-                        }
-                        found_pos = Some((cell_ref.clone(), pos, npos));
-                        occupied_positions.insert(npos);
-                        break 'outer;
+        // Keep the first cell at this position
+        let mut occupied_positions = FnvHashSet::default();
+        occupied_positions.insert(pos);
+
+        // If there are multiple cells in the same position,
+        // find an empty nearby cell for all but one of them
+        for cell_ref in get_res.value.iter().skip(1) {
+            'outer: for nx in -1..=1 {
+                for ny in -1..=1 {
+                    if nx == 0 && ny == 0 {
+                        continue;
                     }
-                }
-                if let Some(move_info) = found_pos {
-                    moves.push(move_info);
+                    let npos = pos.plus(V2i::new(nx, ny));
+                    if !grid.is_in_bounds(npos) {
+                        continue;
+                    }
+                    if occupied_positions.contains(&npos) {
+                        continue;
+                    }
+                    occupied_positions.insert(npos);
+                    moves.push((cell_ref.clone(), pos, npos));
+                    break 'outer;
                 }
             }
         }
