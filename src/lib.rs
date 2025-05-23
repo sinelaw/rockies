@@ -271,24 +271,6 @@ impl Game {
         let pos = base_pos.plus(V2i::new(x, y));
         // unstick some cells
         self.universe.cells.unstick_cells(pos, 3);
-
-        // add a new cell
-        self.universe.cells.add_cell(Cell {
-            index: CellIndex { index: 0 },
-            color: Color {
-                r: 0,
-                g: 150,
-                b: ((155 * y) % 255) as u8,
-            },
-            inertia: Inertia {
-                velocity: V2::zero(),
-                force: V2::zero(),
-                pos: pos.to_v2(),
-                mass: 1,
-                elasticity: 0.5,
-                collision_stats: 0,
-            },
-        });
     }
 
     pub fn width(&self) -> usize {

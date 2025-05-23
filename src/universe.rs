@@ -41,6 +41,8 @@ impl Cell {
     }
     fn unset_static(&mut self) {
         self.inertia.mass = 1;
+        self.inertia.collision_stats = 0;
+        self.inertia.elasticity = 0.5;
     }
 }
 
