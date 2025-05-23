@@ -283,7 +283,7 @@ pub struct UniverseCells {
     collisions_list: Vec<(GridCellRef<Cell>, GridCellRef<Cell>)>,
     collisions_map: FnvHashSet<(CellIndex, CellIndex)>,
 
-    seed: i32,
+    hasher: PermutationTable,
 }
 
 impl UniverseCells {
@@ -298,7 +298,7 @@ impl UniverseCells {
             collisions_list: Vec::new(),
             collisions_map: FnvHashSet::default(),
 
-            seed: 0,
+            hasher: PermutationTable::new(0 as u32),
         }
     }
 
@@ -329,13 +329,12 @@ impl UniverseCells {
     }
 
     fn generated_point(&self, pos: V2i) -> f64 {
-        let hasher = PermutationTable::new(self.seed as u32);
         // Check for caverns
         let posv = pos.to_v2().cmul(0.01);
 
         // perlin_2d returns a value in (-1..1)
-        let local_seed = perlin_2d(Vector2::new(posv.x, posv.y), &hasher).abs()
-            * perlin_2d(Vector2::new(posv.y * 0.3, posv.x * 0.4), &hasher).abs();
+        let local_seed = perlin_2d(Vector2::new(posv.x, posv.y), &self.hasher).abs()
+            * perlin_2d(Vector2::new(posv.y * 0.3, posv.x * 0.4), &self.hasher).abs();
         local_seed
     }
 

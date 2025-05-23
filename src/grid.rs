@@ -1,3 +1,16 @@
+// The `Grid` struct provides a 2D grid data structure for storing and retrieving items.
+// It is designed to efficiently handle spatial queries, particularly for finding items
+// within a certain proximity (neighbors) of a given location.
+//
+// High-Level Concepts:
+// - **GridCell**: Represents a single cell in the grid. Each `GridCell` can hold multiple
+//   items (`value`) and maintain a list of items in neighboring cells (`neighbors`).
+// - **Neighbors**: The `Grid` pre-calculates and stores references to items in adjacent
+//   cells within each `GridCell`. This allows for fast retrieval of nearby items without
+//   iterating over the entire grid. This is particularly useful for collision detection
+//   or other proximity-based operations.
+// - **Versioning**: The `GridCell` uses a `version` to track changes. This allows for
+//   efficient clearing of cell data without reallocating memory.
 use std::{cell::RefCell, fmt::Debug, rc::Rc};
 
 pub type GridCellRef<T> = Rc<RefCell<T>>;
