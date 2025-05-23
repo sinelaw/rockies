@@ -544,25 +544,80 @@ impl UniverseCells {
 
     fn update_pos(&mut self, dt: f64) {
         // update grid and positions
+        let mut grids_to_update = Vec::new();
         for (_cell_index, cell_ref) in &self.moving_cells {
             let mut cell = cell_ref.borrow_mut();
             let old_pos = cell.inertia.pos;
             let new_pos = cell.inertia.pos.plus(cell.inertia.velocity.cmul(dt));
 
+            let new_pos_i = new_pos.round();
             // update grid:
             self.grids
-                .update_cell_pos(&cell_ref, old_pos.round(), new_pos.round());
+                .update_cell_pos(&cell_ref, old_pos.round(), new_pos_i);
             // update position:
             cell.inertia.pos = new_pos;
+
+            grids_to_update.push((self.grids.pos_to_index(new_pos_i), new_pos_i));
+        }
+
+        for (grid, pos) in grids_to_update {
+            self.correct_positions(grid, pos);
         }
 
         // Filter out moving cells that have been made static
-        // (TODO: some previously static cells may now need to be in moving_cells?)
-
         self.moving_cells.retain(|_, cell_ref| {
             let cell = cell_ref.borrow();
             cell.inertia.mass > 0
         });
+    }
+
+    fn correct_positions(&mut self, grid_index: GridIndex, pos: V2i) {
+        // Apply position correction to prevent overlaps
+        let grid = self.grids.get(grid_index).unwrap();
+        let mut moves = Vec::new();
+        let mut occupied_positions = FnvHashSet::default();
+
+        let get_res = grid.get(pos).clone();
+
+        if !get_res.value.is_empty() {
+            // Keep the first cell at this position
+            occupied_positions.insert(pos);
+
+            // If there are multiple cells in the same position,
+            // find an empty nearby cell for all but one of them
+            for cell_ref in get_res.value.iter().skip(1) {
+                let mut found_pos = None;
+                'outer: for nx in -1..=1 {
+                    for ny in -1..=1 {
+                        if nx == 0 && ny == 0 {
+                            continue;
+                        }
+                        let npos = pos.plus(V2i::new(nx, ny));
+                        if !grid.is_in_bounds(npos) {
+                            continue;
+                        }
+                        if occupied_positions.contains(&npos) {
+                            continue;
+                        }
+                        found_pos = Some((cell_ref.clone(), pos, npos));
+                        occupied_positions.insert(npos);
+                        break 'outer;
+                    }
+                }
+                if let Some(move_info) = found_pos {
+                    moves.push(move_info);
+                }
+            }
+        }
+
+        // Then apply all moves at once
+        let grid = self.grids.get_mut(grid_index).unwrap();
+        for (cell_ref, old_pos, new_pos) in moves {
+            grid.remove(old_pos, &cell_ref);
+            grid.put(new_pos, cell_ref.clone());
+            let mut cell = cell_ref.borrow_mut();
+            cell.inertia.pos = new_pos.to_v2();
+        }
     }
 
     pub fn add_cell(&mut self, cell: Cell) {
