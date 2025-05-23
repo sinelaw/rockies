@@ -3,7 +3,7 @@ set -eux
 export RUST_LOG=info 
 
 # Build the wasm package
-wasm-pack build -- --features=wasm_js --no-default-features
+wasm-pack build --profiling -- --features=wasm_js --no-default-features
 
 cd www
 
