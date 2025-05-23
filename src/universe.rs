@@ -659,17 +659,21 @@ impl UniverseCells {
 
     pub fn unstick_cells(&mut self, center: V2i, radius: usize) {
         for cell_idx in self.get_cells(center, radius) {
-            let mut cell = cell_idx.borrow_mut();
+            let cell = cell_idx.borrow_mut();
             if cell.inertia.mass > 0 {
                 continue;
             }
-            cell.unset_static();
             self.moving_cells.insert(cell.index, cell_idx.clone());
-            cell.inertia.velocity = V2 {
-                x: 2.0 * (cell.index.index % 10 - 5) as f64 / 10.0,
-                y: -1.0, //(cell_idx.index % 10 - 5) as f64 / 10000.0 * self.dt,
-            };
+            self.unstick_one_cell(cell);
         }
+    }
+
+    fn unstick_one_cell(&mut self, mut cell: std::cell::RefMut<'_, Cell>) {
+        cell.unset_static();
+        cell.inertia.velocity = V2 {
+            x: 2.0 * ((cell.index.index as i32) % 10 - 5) as f64 / 10.0,
+            y: -1.0 * ((cell.index.index as i32) % 10 - 5) as f64 / 10.0,
+        };
     }
 
     pub fn remove_cell(&mut self, ppos: V2i) {
