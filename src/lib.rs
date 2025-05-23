@@ -106,25 +106,22 @@ impl Game {
         );
     }
 
-    fn render_cell(&mut self, res: &(V2i, Option<grid::GridCellRef<Cell>>), base_pos: V2i) {
-        let cell_ref = res.1.clone();
+    fn render_cell(&mut self, res: &(V2i, Vec<grid::GridCellRef<Cell>>), base_pos: V2i) {
         let pos = res.0;
         let pixel_pos = pos.minus(base_pos);
         let w = self.width as i32;
         let pixel_idx = (pixel_pos.y * w + pixel_pos.x) as usize;
-        match cell_ref {
-            Some(cell) => {
-                let cell = cell.borrow();
-                self.pixels[pixel_idx] =
-                    if cell.inertia.collision_stats > 0 && cell.inertia.mass > 0 {
-                        0xFF0000
-                    } else {
-                        cell.color.to_u32()
-                    }
-            }
-            None => {
-                self.pixels[pixel_idx] = self.render_background(pos);
-            }
+        if res.1.is_empty() {
+            self.pixels[pixel_idx] = self.render_background(pos);
+            return;
+        }
+        for cell_ref in res.1.iter() {
+            let cell = cell_ref.borrow();
+            self.pixels[pixel_idx] = if cell.inertia.collision_stats > 0 && cell.inertia.mass > 0 {
+                0xFF0000
+            } else {
+                cell.color.to_u32()
+            };
         }
     }
 

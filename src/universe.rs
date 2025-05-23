@@ -379,7 +379,7 @@ impl UniverseCells {
         &mut self,
         start_pos: V2i,
         end_pos: V2i,
-    ) -> Vec<(V2i, Option<GridCellRef<Cell>>)> {
+    ) -> Vec<(V2i, Vec<GridCellRef<Cell>>)> {
         self.ensure_grids(start_pos, end_pos);
 
         let count = (end_pos.x - start_pos.x) * (end_pos.y - start_pos.y);
@@ -397,19 +397,15 @@ impl UniverseCells {
                 }
                 let grid = cur_grid.unwrap().1;
 
-                let get_res = grid.get(pos);
-                result.push((pos, self.get_cell_at(get_res)));
+                let mut cur_res = Vec::new();
+                for cell_ref in grid.get(pos).value.iter() {
+                    cur_res.push(cell_ref.clone());
+                }
+                result.push((pos, cur_res));
             }
         }
 
         result
-    }
-
-    fn get_cell_at(&self, get_res: crate::grid::GetResult<'_, Cell>) -> Option<GridCellRef<Cell>> {
-        for cell_idx in get_res.value {
-            return Some(cell_idx.clone());
-        }
-        None
     }
 
     fn ensure_grids(&mut self, start_pos: V2i, end_pos: V2i) {
