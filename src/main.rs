@@ -27,6 +27,19 @@ fn main() -> () {
     let mut stdin_handle = stdin();
     let termios = console::prepare_terimnal(&stdin_handle);
 
+    // Set up panic hook to restore terminal state
+    let old_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |panic_info| {
+        let mut out = stdout();
+        // Restore terminal state
+        console::restore_terminal(&stdin(), termios);
+        console::cursor_enable(&mut out);
+        console::alternate_buffer_disable(&mut out);
+        console::screen_restore(&mut out);
+        // Call the default panic handler
+        old_hook(panic_info);
+    }));
+
     let winsize = get_terminal_size(&out);
 
     let mut last_tick_time = Instant::now();
