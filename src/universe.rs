@@ -559,7 +559,7 @@ impl UniverseCells {
         }
 
         for (grid, pos) in grids_to_update {
-            //   self.correct_positions(grid, pos, dt);
+            self.correct_positions(grid, pos, dt);
         }
 
         // Filter out moving cells that have been made static
@@ -591,8 +591,8 @@ impl UniverseCells {
         // If there are multiple cells in the same position,
         // find an empty nearby cell for all but one of them
         for cell_ref in get_res.value.iter().skip(1) {
-            'outer: for nx in -1..=1 {
-                for ny in -1..=1 {
+            'outer: for nx in [0, -1, 1] {
+                for ny in [-1, 1, 0] {
                     if nx == 0 && ny == 0 {
                         continue;
                     }
