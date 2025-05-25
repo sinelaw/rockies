@@ -214,7 +214,7 @@ impl Game {
                             force: V2::zero(),
                             pos: self.universe.player.mouth_pos(),
                             mass: 1,
-                            elasticity: 0.5,
+                            elasticity: universe::ELASTICITY,
                             collision_stats: 0,
                         },
                     });

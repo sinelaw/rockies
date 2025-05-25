@@ -36,6 +36,8 @@ fn main() -> () {
         console::cursor_enable(&mut out);
         console::alternate_buffer_disable(&mut out);
         console::screen_restore(&mut out);
+        console::clear(&mut out);
+        out.flush().unwrap();
         // Call the default panic handler
         old_hook(panic_info);
     }));

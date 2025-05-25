@@ -32,6 +32,8 @@ pub struct Cell {
     pub inertia: Inertia,
 }
 
+pub const ELASTICITY: f64 = 0.2;
+
 impl Cell {
     fn set_static(&mut self) {
         self.inertia.velocity = V2::zero();
@@ -42,7 +44,7 @@ impl Cell {
     fn unset_static(&mut self) {
         self.inertia.mass = 1;
         self.inertia.collision_stats = 0;
-        self.inertia.elasticity = 0.5;
+        self.inertia.elasticity = ELASTICITY;
     }
 }
 
@@ -557,7 +559,7 @@ impl UniverseCells {
         }
 
         for (grid, pos) in grids_to_update {
-            self.correct_positions(grid, pos);
+            self.correct_positions(grid, pos, dt);
         }
 
         // Filter out moving cells that have been made static
@@ -567,9 +569,12 @@ impl UniverseCells {
         });
     }
 
-    fn correct_positions(&mut self, grid_index: GridIndex, pos: V2i) {
+    fn correct_positions(&mut self, grid_index: GridIndex, pos: V2i, dt: f64) {
         // Apply position correction to prevent overlaps
         self.ensure_grid(grid_index);
+        // ensure all surrounding grids are loaded
+        self.ensure_grids(pos.plus(V2i::new(-1, -1)), pos.plus(V2i::new(1, 1)));
+
         let grid = self.grids.get(grid_index).unwrap();
 
         let get_res = grid.get(pos).clone();
@@ -592,7 +597,12 @@ impl UniverseCells {
                         continue;
                     }
                     let npos = pos.plus(V2i::new(nx, ny));
-                    if !grid.is_in_bounds(npos) {
+                    let other_grid_index = self.grids.pos_to_index(npos);
+                    let other_grid = self.grids.get(other_grid_index).unwrap();
+                    if !other_grid.is_in_bounds(npos) {
+                        continue;
+                    }
+                    if !other_grid.get(npos).value.is_empty() {
                         continue;
                     }
                     if occupied_positions.contains(&npos) {
@@ -606,13 +616,16 @@ impl UniverseCells {
         }
 
         // Then apply all moves at once
-        let grid = self.grids.get_mut(grid_index).unwrap();
         for (cell_ref, old_pos, new_pos) in moves {
-            grid.remove(old_pos, &cell_ref);
-            grid.put(new_pos, cell_ref.clone());
+            self.grids.update_cell_pos(&cell_ref, old_pos, new_pos);
             let mut cell = cell_ref.borrow_mut();
             cell.inertia.pos = new_pos.to_v2();
-            self.moving_cells.insert(cell.index, cell_ref.clone());
+            if cell.inertia.velocity.magnitude_sqr() < velocity_threshold(dt) {
+                // If the cell is moving slowly, make it static
+                cell.set_static();
+            } else {
+                self.moving_cells.insert(cell.index, cell_ref.clone());
+            }
         }
     }
 

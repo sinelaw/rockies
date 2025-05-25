@@ -92,14 +92,14 @@ impl V2 {
     }
     pub fn cmul(&self, other: f64) -> V2 {
         V2 {
-            x: (self.x as f64 * other) as f64,
-            y: (self.y as f64 * other) as f64,
+            x: (self.x * other),
+            y: (self.y * other),
         }
     }
     pub fn cdiv(&self, other: f64) -> V2 {
         V2 {
-            x: (self.x as f64 / other) as f64,
-            y: (self.y as f64 / other) as f64,
+            x: (self.x / other),
+            y: (self.y / other),
         }
     }
 
