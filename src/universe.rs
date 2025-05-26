@@ -559,7 +559,7 @@ impl UniverseCells {
         }
 
         for (grid, pos) in grids_to_update {
-            self.correct_positions(grid, pos, dt);
+            //  self.correct_positions(grid, pos, dt);
         }
 
         // Filter out moving cells that have been made static

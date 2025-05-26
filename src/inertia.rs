@@ -38,13 +38,14 @@ impl Inertia {
         let x1 = inertia1.pos;
         let x2 = inertia2.pos;
 
-        let normal = x2.minus(x1).cdiv(x2.minus(x1).magnitude());
-        let e = 0.5;
+        let distance = x2.minus(x1).magnitude();
+        let normal = x2.minus(x1).cdiv(distance);
         let v_rel = v2.minus(v1).dot(normal);
         if v_rel > 0.0 {
             // objects are moving away from each other
             return (*inertia1, *inertia2);
         }
+        let e = inertia1.elasticity.min(inertia2.elasticity);
         let j = (m1 * m2) / (m1 + m2) * (1.0 + e) * (v_rel);
 
         let u1 = normal.cmul(j / m1).plus(v1);
@@ -53,15 +54,36 @@ impl Inertia {
         let im1 = inverse_mass(m1);
         let im2 = inverse_mass(m2);
 
-        let pos_correct = V2::zero();
+        let penetration = 1.0 - distance; // 1.0 = "radius"
+        let slop = 0.02;
+        let pos_correct = if penetration > slop {
+            normal.cmul((penetration - slop) / (im1 + im2)).cmul(0.1)
+        } else {
+            V2::zero()
+        };
+
+        let uf1 = if inertia1.mass == 0 { v1 } else { u1 };
+        let uf2 = if inertia2.mass == 0 { v2 } else { u2 };
+
+        let p1 = if inertia1.mass == 0 {
+            x1
+        } else {
+            x1.minus(pos_correct.cmul(im1))
+        };
+        let p2 = if inertia2.mass == 0 {
+            x2
+        } else {
+            x2.plus(pos_correct.cmul(im2))
+        };
+
         let inertia1_new = Inertia {
-            pos: inertia1.pos.plus(pos_correct.cmul(im1)),
-            velocity: u1,
+            pos: p1,
+            velocity: uf1,
             ..*inertia1
         };
         let inertia2_new = Inertia {
-            pos: inertia2.pos.minus(pos_correct.cmul(im2)),
-            velocity: u2,
+            pos: p2,
+            velocity: uf2,
             ..*inertia2
         };
         (inertia1_new, inertia2_new)
