@@ -537,6 +537,10 @@ impl UniverseCells {
     fn update_cell_collision(cell: &mut Cell, new_inertia: Inertia) {
         cell.inertia = new_inertia;
         cell.inertia.collision_stats += 1;
+        if cell.inertia.collision_stats > 1000 {
+            // dumpen highly colliding cells
+            cell.inertia.velocity = V2::zero();
+        }
         log!("index: {cell_index:?}, inertia: {new_inertia:?}");
     }
 
