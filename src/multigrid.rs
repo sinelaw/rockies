@@ -1,6 +1,7 @@
 use fnv::FnvHashMap;
 use std::fmt::Debug;
 use wasm_bindgen::prelude::wasm_bindgen;
+use wasm_bindgen::JsValue;
 
 use std::convert::TryFrom;
 
@@ -100,13 +101,14 @@ impl<T: Debug> UniverseGrid<T> {
     }
 }
 
-#[derive(Hash, Eq, Clone, Copy, Debug, PartialEq)]
+#[derive(Hash, Eq, Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[wasm_bindgen]
 pub struct GridIndex {
     // offset in units of width, height
     pub grid_offset: V2i,
 }
 
+#[wasm_bindgen]
 impl GridIndex {
     pub fn from_pos(pos: V2i, width: usize, height: usize) -> GridIndex {
         GridIndex {
@@ -122,6 +124,11 @@ impl GridIndex {
             self.grid_offset.x * width as i32,
             self.grid_offset.y * height as i32,
         )
+    }
+
+    #[wasm_bindgen]
+    pub fn to_js(&self) -> Result<JsValue, JsValue> {
+        Ok(serde_wasm_bindgen::to_value(&self)?)
     }
 }
 

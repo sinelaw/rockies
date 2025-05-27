@@ -6,7 +6,7 @@ pub struct V2 {
     pub y: f64,
 }
 
-#[derive(Clone, Hash, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Hash, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[wasm_bindgen]
 pub struct V2i {
     pub x: i32,
