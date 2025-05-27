@@ -57,7 +57,7 @@ itertools = "0.14.0"
 debug = true
 
 [package.metadata.wasm-pack.profile.profiling]
-wasm-opt = ['-O']
+#wasm-opt = ['-Os']
 
 [package.metadata.wasm-pack.profile.profiling.wasm-bindgen]
 debug-js-glue = true
