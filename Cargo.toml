@@ -55,3 +55,12 @@ itertools = "0.14.0"
 
 [profile.release]
 debug = true
+
+[package.metadata.wasm-pack.profile.profiling]
+wasm-opt = ['-O']
+
+[package.metadata.wasm-pack.profile.profiling.wasm-bindgen]
+debug-js-glue = true
+demangle-name-section = true
+dwarf-debug-info = false
+

@@ -11,10 +11,13 @@ mod utils;
 mod v2;
 use color::Color;
 
+mod log;
+
 use noise::Vector2;
 use noise::{core::perlin::perlin_2d, permutationtable::PermutationTable};
 
 use inertia::Inertia;
+use log::log;
 use multigrid::{CellIndex, GridIndex};
 use universe::{Cell, Stats, Universe};
 
@@ -85,7 +88,9 @@ impl Game {
     }
 
     pub fn load_grid(&mut self, grid_index: GridIndex, bytes: &[u8]) {
-        self.universe.load_from_storage(grid_index, bytes)
+        if let Err(err) = self.universe.load_from_storage(grid_index, bytes) {
+            log!("Failed to load grid {grid_index:?}: {}", err);
+        }
     }
 
     pub fn save_grid(&mut self, grid_index: GridIndex) -> Vec<u8> {

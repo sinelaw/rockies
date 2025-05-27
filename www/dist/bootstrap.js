@@ -1,7 +1,7 @@
 /*
- * ATTENTION: An "eval-source-map" devtool has been used.
+ * ATTENTION: The "eval" devtool has been used (maybe by default in mode: "development").
  * This devtool is neither made for production nor for readable output files.
- * It uses "eval()" calls to create a separate source file with attached SourceMaps in the browser devtools.
+ * It uses "eval()" calls to create a separate source file in the browser devtools.
  * If you are trying to read the output file, select a different devtool (https://webpack.js.org/configuration/devtool/)
  * or disable the default devtool with "devtool: false".
  * If you are looking for production-ready output files, see mode: "production" (https://webpack.js.org/configuration/mode/).
@@ -15,7 +15,7 @@
   \**********************/
 /***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
 
-eval("// A dependency graph that contains any wasm must all be imported\n// asynchronously. This `bootstrap.js` file does the single async import, so\n// that no one else needs to worry about it again.\nPromise.all(/*! import() */[__webpack_require__.e(\"vendors-node_modules_rockies_index_js\"), __webpack_require__.e(\"index_js\")]).then(__webpack_require__.bind(__webpack_require__, /*! ./index.js */ \"./index.js\"))\n  .catch(e => console.error(\"Error importing `index.js`:\", e));\n//# sourceURL=[module]\n//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiLi9ib290c3RyYXAuanMiLCJtYXBwaW5ncyI6IkFBQUE7QUFDQTtBQUNBO0FBQ0E7QUFDQSIsInNvdXJjZXMiOlsid2VicGFjazovLy8uL2Jvb3RzdHJhcC5qcz9kZjg2Il0sInNvdXJjZXNDb250ZW50IjpbIi8vIEEgZGVwZW5kZW5jeSBncmFwaCB0aGF0IGNvbnRhaW5zIGFueSB3YXNtIG11c3QgYWxsIGJlIGltcG9ydGVkXG4vLyBhc3luY2hyb25vdXNseS4gVGhpcyBgYm9vdHN0cmFwLmpzYCBmaWxlIGRvZXMgdGhlIHNpbmdsZSBhc3luYyBpbXBvcnQsIHNvXG4vLyB0aGF0IG5vIG9uZSBlbHNlIG5lZWRzIHRvIHdvcnJ5IGFib3V0IGl0IGFnYWluLlxuaW1wb3J0KFwiLi9pbmRleC5qc1wiKVxuICAuY2F0Y2goZSA9PiBjb25zb2xlLmVycm9yKFwiRXJyb3IgaW1wb3J0aW5nIGBpbmRleC5qc2A6XCIsIGUpKTtcbiJdLCJuYW1lcyI6W10sInNvdXJjZVJvb3QiOiIifQ==\n//# sourceURL=webpack-internal:///./bootstrap.js\n");
+eval("// A dependency graph that contains any wasm must all be imported\n// asynchronously. This `bootstrap.js` file does the single async import, so\n// that no one else needs to worry about it again.\n__webpack_require__.e(/*! import() */ \"index_js\").then(__webpack_require__.bind(__webpack_require__, /*! ./index.js */ \"./index.js\"))\n  .catch(e => console.error(\"Error importing `index.js`:\", e));\n\n\n//# sourceURL=webpack://create-wasm-app/./bootstrap.js?");
 
 /***/ })
 
@@ -172,7 +172,7 @@ eval("// A dependency graph that contains any wasm must all be imported\n// asyn
 /******/ 	/* webpack/runtime/load script */
 /******/ 	(() => {
 /******/ 		var inProgress = {};
-/******/ 		// data-webpack is not used as build has no uniqueName
+/******/ 		var dataWebpackPrefix = "create-wasm-app:";
 /******/ 		// loadScript function to load a script via script tag
 /******/ 		__webpack_require__.l = (url, done, key, chunkId) => {
 /******/ 			if(inProgress[url]) { inProgress[url].push(done); return; }
@@ -181,7 +181,7 @@ eval("// A dependency graph that contains any wasm must all be imported\n// asyn
 /******/ 				var scripts = document.getElementsByTagName("script");
 /******/ 				for(var i = 0; i < scripts.length; i++) {
 /******/ 					var s = scripts[i];
-/******/ 					if(s.getAttribute("src") == url) { script = s; break; }
+/******/ 					if(s.getAttribute("src") == url || s.getAttribute("data-webpack") == dataWebpackPrefix + key) { script = s; break; }
 /******/ 				}
 /******/ 			}
 /******/ 			if(!script) {
@@ -193,7 +193,7 @@ eval("// A dependency graph that contains any wasm must all be imported\n// asyn
 /******/ 				if (__webpack_require__.nc) {
 /******/ 					script.setAttribute("nonce", __webpack_require__.nc);
 /******/ 				}
-/******/ 		
+/******/ 				script.setAttribute("data-webpack", dataWebpackPrefix + key);
 /******/ 		
 /******/ 				script.src = url;
 /******/ 			}
@@ -363,7 +363,7 @@ eval("// A dependency graph that contains any wasm must all be imported\n// asyn
 /******/ 		
 /******/ 		}
 /******/ 		
-/******/ 		var chunkLoadingGlobal = self["webpackChunk"] = self["webpackChunk"] || [];
+/******/ 		var chunkLoadingGlobal = self["webpackChunkcreate_wasm_app"] = self["webpackChunkcreate_wasm_app"] || [];
 /******/ 		chunkLoadingGlobal.forEach(webpackJsonpCallback.bind(null, 0));
 /******/ 		chunkLoadingGlobal.push = webpackJsonpCallback.bind(null, chunkLoadingGlobal.push.bind(chunkLoadingGlobal));
 /******/ 	})();
@@ -372,7 +372,7 @@ eval("// A dependency graph that contains any wasm must all be imported\n// asyn
 /******/ 	
 /******/ 	// startup
 /******/ 	// Load entry module and return exports
-/******/ 	// This entry module can't be inlined because the eval-source-map devtool is used.
+/******/ 	// This entry module can't be inlined because the eval devtool is used.
 /******/ 	var __webpack_exports__ = __webpack_require__("./bootstrap.js");
 /******/ 	
 /******/ })()

@@ -1,9 +1,333 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <title>Webpack App</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1"><script defer src="bootstrap.js"></script></head>
-  <body>
-  </body>
+<html style="overflow: hidden; height: 100%; margin: 0; padding: 0;">
+
+<head>
+  <meta charset="utf-8" name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+
+  <title>ROCKIES!! 🐹</title>
+  <style>
+    .checkerboard {
+      background-color: #404040;
+      /* Base color */
+      background-image: linear-gradient(45deg, #555 25%, transparent 25%),
+        linear-gradient(-45deg, #555 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #555 75%),
+        linear-gradient(-45deg, transparent 75%, #555 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    @keyframes gridMove {
+      0% {
+        background-position: 0 0;
+      }
+
+      100% {
+        background-position: 50px 50px;
+      }
+    }
+
+    body {
+      position: absolute;
+      top: 0;
+      left: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      font-family: monospace;
+      background-color: #000;
+      background-image:
+        linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(rgba(255, 0, 255, 0.02) 2px, transparent 2px),
+        linear-gradient(90deg, rgba(255, 0, 255, 0.02) 2px, transparent 2px);
+      background-size: 25px 25px, 25px 25px, 100px 100px, 100px 100px;
+      animation: gridMove 30s linear infinite;
+      overflow: hidden;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at 50% 50%,
+          rgba(30, 10, 50, 0.8) 0%,
+          rgba(10, 5, 15, 0.9) 95%,
+          rgba(0, 0, 0, 1) 100%);
+      pointer-events: none;
+    }
+
+    .debug-panel {
+      background-color: #000;
+      color: #0f0;
+      padding: 10px;
+      border-radius: 0px;
+      margin-top: 10px;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 8px;
+      width: calc(min(90vw, 90vh));
+      max-width: 500px;
+      position: relative;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    @keyframes scanline {
+      0% {
+        background-position: 0 0;
+      }
+
+      100% {
+        background-position: 0 100%;
+      }
+    }
+
+    .game-canvas {
+      background-color: #000;
+      width: min(90vw, 90vh);
+      height: min(90vw, 90vh);
+      max-width: 500px;
+      max-height: 500px;
+      position: relative;
+      margin-bottom: 20px;
+      border: 16px solid #1a1a1a;
+      border-radius: 10px;
+      box-shadow:
+        inset 0 0 10px rgba(0, 255, 0, 0.1),
+        0 0 20px rgba(0, 255, 0, 0.15),
+        0 0 40px rgba(0, 0, 0, 0.5);
+    }
+
+    #the-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Create a wrapper for the CRT effects */
+    .crt-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .crt-overlay::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%,
+          rgba(0, 0, 0, 0.4) 50%);
+      background-size: 100% 4px;
+      animation: scanline 8s linear infinite;
+      opacity: 0.4;
+    }
+
+    .crt-overlay::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at center,
+          transparent 0%,
+          rgba(0, 0, 0, 0.4) 90%);
+      opacity: 0.5;
+    }
+
+    .move-button-wide {
+      min-width: 100px;
+    }
+
+    .move-button-small {
+      width: 50px;
+    }
+
+    .move-button {
+      height: 50px;
+      font-size: 14px;
+      margin: 5px;
+      border-radius: 8px;
+      /* Lighter, more visible background */
+      background: linear-gradient(145deg, #555, #666);
+      /* Thicker, brighter border */
+      border: 3px solid #ccf;
+      color: #fff;
+      /* Much stronger text shadow for visibility */
+      text-shadow: 0 0 4px #fff,
+        0 0 8px rgba(0, 255, 255, 0.8);
+      /* Enhanced glow and contrast */
+      box-shadow: 0 0 15px rgba(0, 255, 255, 0.3),
+        inset 0 0 10px rgba(255, 255, 255, 0.2);
+      transition: all 0.1s ease;
+      cursor: pointer;
+      font-family: 'Courier New', monospace;
+      /* Extra bold text */
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    .move-button:active,
+    .move-button.active {
+      /* Higher contrast pressed state */
+      background: linear-gradient(145deg, #333, #444);
+      transform: scale(0.95);
+      border-color: #0ff;
+      /* Enhanced pressed state glow */
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.4),
+        inset 0 0 15px rgba(0, 255, 255, 0.3);
+      /* Stronger text shadow when pressed */
+      text-shadow: 0 0 4px #fff,
+        0 0 12px rgba(0, 255, 255, 1);
+    }
+
+    .checkbox-button {
+      display: inline-block;
+      padding: 10px 15px;
+      background-color: #4CAF50;
+      color: white;
+      text-align: center;
+      text-decoration: none;
+      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .move-button-checkbox {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Style the label to look like our button */
+    label.move-button {
+      color: #fff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Use the checkbox:checked state for highlighting */
+    label.move-button:has(.move-button-checkbox:checked) {
+      /* Higher contrast pressed state */
+      background: linear-gradient(145deg, #333, #444);
+      transform: scale(0.95);
+      border-color: #0ff;
+      /* Enhanced pressed state glow */
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.4),
+        inset 0 0 15px rgba(0, 255, 255, 0.3);
+      /* Stronger text shadow when pressed */
+      text-shadow: 0 0 4px #fff,
+        0 0 12px rgba(0, 255, 255, 1);
+    }
+
+    /* Focus styles for keyboard navigation */
+    label.move-button:has(.move-button-checkbox:focus-visible) {
+      outline: 2px solid #0ff;
+      outline-offset: 2px;
+    }
+  </style>
+</head>
+
+<body>
+  <noscript>This page contains webassembly and javascript content, please enable javascript in your browser.</noscript>
+  <div class="container">
+    <div class="game-canvas">
+      <canvas id="the-canvas"></canvas>
+      <div class="crt-overlay"></div>
+    </div>
+    <div style="justify-content: center; align-items: center; display: flex;">
+
+
+      <div style="display: flex; align-items: flex-start; gap: 20px;">
+        <!-- WASD Controls -->
+        <div style="display: flex; flex-direction: column;">
+          <div style="display: flex;">
+            <button class="move-button move-button-small" data-keys="w,a">w+a</button>
+            <button class="move-button move-button-small" data-keys="w">w</button>
+            <button class="move-button move-button-small" data-keys="w,d">w+d</button>
+          </div>
+          <div style="display: flex;">
+            <button class="move-button move-button-small" data-keys="a">a</button>
+            <button class="move-button move-button-small" style="visibility: hidden;"> </button>
+            <button class="move-button move-button-small" data-keys="d">d</button>
+          </div>
+          <div style="display: flex;">
+            <button class="move-button move-button-small" data-keys="s,a">s+a</button>
+            <button class="move-button move-button-small" data-keys="s">s</button>
+            <button class="move-button move-button-small" data-keys="s,d">s+d</button>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div style="display: flex; flex-direction: column; justify-content: center;">
+          <button class="move-button move-button-wide" data-keys=" ">space</button>
+          <label class="move-button move-button-wide">
+            <input type="checkbox" class="move-button-checkbox" data-keys="shift">
+            <span>shift</span>
+          </label>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <div class="debug-panel">
+    <div>ROCKIES!! 🐹</div>
+    <div><strong>Keys: space - shoot, shift - dig, 0-9 - select color</strong></div>
+    <div>Ticks: <span id="ticks"></span></div>
+    <div>Cells: <span id="cells-count"></span> Collisions: <span id="collisions-count"></span> Collision pairs tested:
+      <span id="collision-pairs-tested"></span>
+    </div>
+    <div>Version: <span id="version"></span></div>
+    <div>- <span id="touches"></span> - </div>
+
+  </div>
+  <script src="./bootstrap.js"></script>
+  <!-- <script src="//cdn.jsdelivr.net/npm/eruda"></script>
+  <script>eruda.init();</script> -->
+</body>
+
 </html>

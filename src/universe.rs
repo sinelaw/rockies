@@ -8,22 +8,13 @@ use crate::inertia::Inertia;
 use crate::multigrid::{CellIndex, GridIndex, MultiGrid, UniverseGrid};
 use crate::v2::{V2i, V2};
 
+use crate::log::log;
+
 use noise::Vector2;
 use noise::{core::perlin::perlin_2d, permutationtable::PermutationTable};
 
 use fnv::{FnvHashMap, FnvHashSet};
 use wasm_bindgen::prelude::*;
-
-extern crate web_sys;
-
-// A macro to provide `println!(..)`-style syntax for `console.log` logging.
-#[allow(unused_macros)]
-macro_rules! log {
-    ( $( $t:tt )* ) => {
-        // web_sys::console::log_1(&format!( $( $t )* ).into())
-        // println!( $( $t )* );
-    };
-}
 
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Cell {
@@ -546,7 +537,7 @@ impl UniverseCells {
             // dumpen highly colliding cells
             cell.inertia.velocity = V2::zero();
         }
-        log!("index: {cell_index:?}, inertia: {new_inertia:?}");
+        log!("index: {:?}, inertia: {new_inertia:?}", cell.index);
     }
 
     fn update_pos(&mut self, dt: f64) {
@@ -786,15 +777,19 @@ impl Universe {
         self.cells.get_far_grids(self.player.inertia.pos)
     }
 
-    pub fn load_from_storage(&mut self, grid_index: GridIndex, bytes: &[u8]) {
+    pub fn load_from_storage(
+        &mut self,
+        grid_index: GridIndex,
+        bytes: &[u8],
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let grid = UniverseGrid::from_bytes(
             bytes,
             grid_index,
             self.cells.grids.grid_width,
             self.cells.grids.grid_height,
-        )
-        .unwrap();
+        )?;
         self.cells.load_from_storage(grid_index, grid);
+        Ok(())
     }
 
     pub fn tick(&mut self) {
