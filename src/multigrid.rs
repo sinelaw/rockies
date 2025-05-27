@@ -1,12 +1,15 @@
 use fnv::FnvHashMap;
 use std::fmt::Debug;
+use wasm_bindgen::prelude::wasm_bindgen;
 
 use std::convert::TryFrom;
 
 use crate::grid::GridCellRef;
 use crate::{grid::Grid, v2::V2i};
 
-#[derive(Default, Hash, Eq, Clone, Copy, Debug, PartialEq)]
+#[derive(
+    Default, Hash, Eq, Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize,
+)]
 pub struct CellIndex {
     pub index: usize,
 }
@@ -21,6 +24,31 @@ pub struct UniverseGrid<T> {
 }
 
 impl<T: Debug> UniverseGrid<T> {
+    pub fn to_bytes(&self) -> Vec<u8>
+    where
+        T: serde::Serialize + Clone,
+    {
+        self.grid.to_bytes()
+    }
+
+    pub fn from_bytes(
+        bytes: &[u8],
+        grid_index: GridIndex,
+        grid_width: usize,
+        grid_height: usize,
+    ) -> Result<Self, Box<dyn std::error::Error>>
+    where
+        T: serde::de::DeserializeOwned + Clone,
+    {
+        let grid = Grid::from_bytes(bytes)?;
+        Ok(UniverseGrid {
+            grid,
+            width: grid_width,
+            height: grid_height,
+            offset: grid_index.to_pos(grid_width, grid_height),
+        })
+    }
+
     pub fn is_in_bounds(&self, pos: V2i) -> bool {
         let relative_pos = pos.minus(self.offset);
         relative_pos.x >= 0
@@ -73,6 +101,7 @@ impl<T: Debug> UniverseGrid<T> {
 }
 
 #[derive(Hash, Eq, Clone, Copy, Debug, PartialEq)]
+#[wasm_bindgen]
 pub struct GridIndex {
     // offset in units of width, height
     pub grid_offset: V2i,
@@ -120,6 +149,10 @@ impl<T: Debug> MultiGrid<T> {
         is_new
     }
 
+    pub fn insert(&mut self, index: GridIndex, grid: UniverseGrid<T>) {
+        self.grids.insert(index, grid);
+    }
+
     pub fn get(&self, grid_index: GridIndex) -> Option<&UniverseGrid<T>> {
         self.grids.get(&grid_index)
     }
@@ -146,8 +179,25 @@ impl<T: Debug> MultiGrid<T> {
         }
     }
 
-    pub fn get_far_grids(&mut self, center: V2i, drop_radius: usize) -> Vec<GridIndex> {
-        let grids_to_drop: Vec<GridIndex> = self
+    pub fn get_near_grids(&self, center: V2i, drop_radius: usize) -> Vec<GridIndex> {
+        let near_grids: Vec<GridIndex> = self
+            .grids
+            .iter()
+            .filter(|(grid_index, _)| {
+                let grid_pos = grid_index.to_pos(self.grid_width, self.grid_height);
+                usize::try_from((grid_pos.x - center.x).abs()).unwrap() / self.grid_width
+                    <= drop_radius
+                    || usize::try_from((grid_pos.y - center.y).abs()).unwrap() / self.grid_height
+                        <= drop_radius
+            })
+            .map(|(grid_index, _)| *grid_index)
+            .collect();
+
+        near_grids
+    }
+
+    pub fn get_far_grids(&self, center: V2i, drop_radius: usize) -> Vec<GridIndex> {
+        let far_grids: Vec<GridIndex> = self
             .grids
             .iter()
             .filter(|(grid_index, _)| {
@@ -160,12 +210,12 @@ impl<T: Debug> MultiGrid<T> {
             .map(|(grid_index, _)| *grid_index)
             .collect();
 
-        grids_to_drop
+        far_grids
     }
 
-    pub fn drop_grid(&mut self, grid_index: GridIndex) {
+    pub fn drop_grid(&mut self, grid_index: GridIndex) -> Option<UniverseGrid<T>> {
         //println!("dropping grid: {grid_index:?}");
-        self.remove(grid_index);
+        self.remove(grid_index)
     }
 }
 

@@ -15,7 +15,7 @@ use noise::Vector2;
 use noise::{core::perlin::perlin_2d, permutationtable::PermutationTable};
 
 use inertia::Inertia;
-use multigrid::CellIndex;
+use multigrid::{CellIndex, GridIndex};
 use universe::{Cell, Stats, Universe};
 
 use v2::{V2i, V2};
@@ -74,6 +74,26 @@ impl Game {
 
     fn is_in_bounds(&self, x: i32, y: i32) -> bool {
         x >= 0 && x < (self.width as i32) && y >= 0 && y < (self.height as i32)
+    }
+
+    pub fn get_grids_to_load(&self) -> Vec<GridIndex> {
+        self.universe.get_grids_to_load()
+    }
+
+    pub fn get_grids_to_save(&self) -> Vec<GridIndex> {
+        self.universe.get_grids_to_save()
+    }
+
+    pub fn load_grid(&mut self, grid_index: GridIndex, bytes: &[u8]) {
+        self.universe.load_from_storage(grid_index, bytes)
+    }
+
+    pub fn save_grid(&mut self, grid_index: GridIndex) -> Vec<u8> {
+        if let Some(bytes) = self.universe.drop_to_storage(grid_index) {
+            bytes
+        } else {
+            Vec::new()
+        }
     }
 
     pub fn render(&mut self) -> () {

@@ -1,10 +1,13 @@
-#[derive(Clone, Copy, Debug, PartialEq)]
+use wasm_bindgen::prelude::wasm_bindgen;
+
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct V2 {
     pub x: f64,
     pub y: f64,
 }
 
 #[derive(Clone, Hash, Copy, Debug, PartialEq, Eq)]
+#[wasm_bindgen]
 pub struct V2i {
     pub x: i32,
     pub y: i32,

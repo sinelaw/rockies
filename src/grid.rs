@@ -11,9 +11,18 @@
 //   or other proximity-based operations.
 // - **Versioning**: The `GridCell` uses a `version` to track changes. This allows for
 //   efficient clearing of cell data without reallocating memory.
-use std::{cell::RefCell, fmt::Debug, rc::Rc};
+use serde::{Deserialize, Serialize};
+use std::{cell::RefCell, collections::HashMap, fmt::Debug, rc::Rc};
 
 pub type GridCellRef<T> = Rc<RefCell<T>>;
+
+#[derive(Serialize, Deserialize)]
+struct GridSerialData<T> {
+    width: usize,
+    height: usize,
+    version: usize,
+    items: Vec<(usize, usize, T)>, // (x, y, item)
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GetResult<'a, T> {
@@ -149,6 +158,62 @@ impl<T: Debug> Grid<T> {
     }
 }
 
+impl<T: Debug + Clone> Grid<T> {
+    /// Serialize the grid to bytes
+    /// This serializes the grid dimensions and all items with their positions
+    pub fn to_bytes(&self) -> Vec<u8>
+    where
+        T: serde::Serialize,
+    {
+        let mut items = Vec::new();
+
+        // Collect all unique items and their positions
+        let mut seen_items = HashMap::new();
+
+        for x in 0..self.width {
+            for y in 0..self.height {
+                let result = self.get(x, y);
+                for item_ref in result.value {
+                    let item_ptr = item_ref.as_ptr();
+                    if !seen_items.contains_key(&item_ptr) {
+                        let item = item_ref.borrow().clone();
+                        seen_items.insert(item_ptr, items.len());
+                        items.push((x, y, item));
+                    }
+                }
+            }
+        }
+
+        let grid_data = GridSerialData {
+            width: self.width,
+            height: self.height,
+            version: self.version,
+            items,
+        };
+
+        bincode::serialize(&grid_data).unwrap_or_default()
+    }
+
+    /// Deserialize the grid from bytes
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Box<dyn std::error::Error>>
+    where
+        T: serde::de::DeserializeOwned,
+    {
+        let grid_data: GridSerialData<T> = bincode::deserialize(bytes)?;
+
+        let mut grid = Grid::new(grid_data.width, grid_data.height);
+        grid.version = grid_data.version;
+
+        // Reconstruct the grid by placing items at their positions
+        for (x, y, item) in grid_data.items {
+            let item_ref = Rc::new(RefCell::new(item));
+            grid.put(x, y, item_ref);
+        }
+
+        Ok(grid)
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -217,6 +282,67 @@ mod tests {
             assert_eq!(res.neighbors, &[b.clone()]);
         }
     }
+    #[test]
+    fn test_grid_serialization() {
+        let mut grid: Grid<char> = Grid::new(3, 3);
+        let a = Rc::new(RefCell::new('a'));
+        let b = Rc::new(RefCell::new('b'));
+        let c = Rc::new(RefCell::new('c'));
+
+        grid.put(0, 0, a.clone());
+        grid.put(1, 1, b.clone());
+        grid.put(2, 2, c.clone());
+
+        // Serialize the grid
+        let bytes = grid.to_bytes();
+        assert!(!bytes.is_empty());
+
+        // Deserialize the grid
+        let restored_grid: Grid<char> = Grid::from_bytes(&bytes).unwrap();
+
+        // Verify dimensions and version
+        assert_eq!(restored_grid.width, 3);
+        assert_eq!(restored_grid.height, 3);
+        assert_eq!(restored_grid.version, grid.version);
+
+        // Verify items are in correct positions
+        let res_a = restored_grid.get(0, 0);
+        assert_eq!(res_a.value.len(), 1);
+        assert_eq!(*res_a.value[0].borrow(), 'a');
+
+        let res_b = restored_grid.get(1, 1);
+        assert_eq!(res_b.value.len(), 1);
+        assert_eq!(*res_b.value[0].borrow(), 'b');
+
+        let res_c = restored_grid.get(2, 2);
+        assert_eq!(res_c.value.len(), 1);
+        assert_eq!(*res_c.value[0].borrow(), 'c');
+
+        // Verify empty positions
+        let res_empty = restored_grid.get(0, 1);
+        assert_eq!(res_empty.value.len(), 0);
+    }
+
+    #[test]
+    fn test_grid_empty_serialization() {
+        let grid: Grid<i32> = Grid::new(2, 2);
+
+        let bytes = grid.to_bytes();
+        assert!(!bytes.is_empty());
+
+        let restored_grid: Grid<i32> = Grid::from_bytes(&bytes).unwrap();
+        assert_eq!(restored_grid.width, 2);
+        assert_eq!(restored_grid.height, 2);
+
+        // All positions should be empty
+        for x in 0..2 {
+            for y in 0..2 {
+                let res = restored_grid.get(x, y);
+                assert_eq!(res.value.len(), 0);
+            }
+        }
+    }
+
     /*
     #[test]
     fn test_grid_clear() {

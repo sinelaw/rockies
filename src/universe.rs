@@ -25,7 +25,7 @@ macro_rules! log {
     };
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Cell {
     pub index: CellIndex,
     pub color: Color,
@@ -330,6 +330,11 @@ impl UniverseCells {
         if is_new {
             self.create_wall_cells(grid_index);
         }
+    }
+
+    fn load_from_storage(&mut self, grid_index: GridIndex, grid: UniverseGrid<Cell>) {
+        // Load a grid from storage, if it exists
+        self.grids.insert(grid_index, grid);
     }
 
     fn generated_point(&self, pos: V2i) -> f64 {
@@ -713,33 +718,31 @@ impl UniverseCells {
         }
     }
 
-    fn drop_far_cells(&mut self, center: V2) {
+    fn get_near_grids(&self, center: V2) -> Vec<GridIndex> {
         let drop_radius = 2;
-        let far_grids = self.grids.get_far_grids(center.round(), drop_radius);
+        self.grids.get_near_grids(center.round(), drop_radius)
+    }
 
-        if far_grids.len() == 0 {
-            return;
-        }
+    fn get_far_grids(&self, center: V2) -> Vec<GridIndex> {
+        let drop_radius = 2;
+        self.grids.get_far_grids(center.round(), drop_radius)
+    }
 
-        for grid_index in far_grids.iter() {
-            let grid = self.grids.get_mut(*grid_index).unwrap();
-            let grid_origin = grid_index.to_pos(grid.width, grid.height);
-            for x in 0..grid.width {
-                for y in 0..grid.height {
-                    let values = grid
-                        .get(V2i::new(x as i32, y as i32).plus(grid_origin))
-                        .value;
-                    for cell_index in values {
-                        //self.cells.remove(&cell_index);
-                        self.moving_cells.remove(&cell_index.borrow().index);
-                    }
+    fn drop_grid(&mut self, grid_index: GridIndex) -> Option<UniverseGrid<Cell>> {
+        let grid = self.grids.get_mut(grid_index).unwrap();
+        let grid_origin = grid_index.to_pos(grid.width, grid.height);
+        for x in 0..grid.width {
+            for y in 0..grid.height {
+                let values = grid
+                    .get(V2i::new(x as i32, y as i32).plus(grid_origin))
+                    .value;
+                for cell_index in values {
+                    //self.cells.remove(&cell_index);
+                    self.moving_cells.remove(&cell_index.borrow().index);
                 }
             }
         }
-        //println!("removed {} cells", removed_cells);
-        for grid_index in far_grids {
-            self.grids.drop_grid(grid_index);
-        }
+        self.grids.drop_grid(grid_index)
     }
 }
 
@@ -772,8 +775,26 @@ impl Universe {
         self.player.update_velocity(self.dt);
     }
 
-    fn drop_far_cells(&mut self) {
-        self.cells.drop_far_cells(self.player.inertia.pos);
+    pub fn drop_to_storage(&mut self, grid_index: GridIndex) -> Option<Vec<u8>> {
+        self.cells.drop_grid(grid_index).map(|grid| grid.to_bytes())
+    }
+
+    pub fn get_grids_to_load(&self) -> Vec<GridIndex> {
+        self.cells.get_near_grids(self.player.inertia.pos)
+    }
+    pub fn get_grids_to_save(&self) -> Vec<GridIndex> {
+        self.cells.get_far_grids(self.player.inertia.pos)
+    }
+
+    pub fn load_from_storage(&mut self, grid_index: GridIndex, bytes: &[u8]) {
+        let grid = UniverseGrid::from_bytes(
+            bytes,
+            grid_index,
+            self.cells.grids.grid_width,
+            self.cells.grids.grid_height,
+        )
+        .unwrap();
+        self.cells.load_from_storage(grid_index, grid);
     }
 
     pub fn tick(&mut self) {
@@ -788,7 +809,6 @@ impl Universe {
             self.cells.calc_collisions(self.dt);
 
             self.player.update_pos(&self.cells, self.dt);
-            self.drop_far_cells();
             self.cells.update_pos(self.dt);
             self.zero_forces();
         }

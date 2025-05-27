@@ -26,9 +26,30 @@ version.textContent = game.version();
 
 const ctx = canvas.getContext('2d');
 
+function loadAndSave() {
+
+    let grids_to_save = game.get_grids_to_save();
+    for (const grid_index in grids_to_save) {
+        const grid = game.save_grid(grid_index);
+        // save to LocalStorage
+        localStorage.setItem(`grid_${grid_index}`, grid);
+    }
+
+    // Load grids from LocalStorage 
+    let grids_to_load = game.get_grids_to_load();
+    for (const grid_index in grids_to_load) {
+        const grid = localStorage.getItem(`grid_${grid_index}`);
+        if (grid) {
+            game.load_grid(grid_index, grid);
+        }
+    }
+}
+
 const renderLoop = () => {
 
     game.tick();
+
+    loadAndSave();
 
     drawPixels();
 

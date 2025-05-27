@@ -1,6 +1,6 @@
 use crate::v2::V2;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Inertia {
     pub velocity: V2,
     pub force: V2,
