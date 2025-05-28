@@ -13,6 +13,7 @@
 //   efficient clearing of cell data without reallocating memory.
 use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, collections::HashMap, fmt::Debug, rc::Rc};
+use wasm_bindgen::JsValue;
 
 pub type GridCellRef<T> = Rc<RefCell<T>>;
 
@@ -161,7 +162,7 @@ impl<T: Debug> Grid<T> {
 impl<T: Debug + Clone> Grid<T> {
     /// Serialize the grid to bytes
     /// This serializes the grid dimensions and all items with their positions
-    pub fn to_bytes(&self) -> Vec<u8>
+    pub fn to_bytes(&self) -> Result<JsValue, serde_wasm_bindgen::Error>
     where
         T: serde::Serialize,
     {
@@ -191,15 +192,15 @@ impl<T: Debug + Clone> Grid<T> {
             items,
         };
 
-        bincode::serialize(&grid_data).unwrap_or_default()
+        serde_wasm_bindgen::to_value(&grid_data)
     }
 
     /// Deserialize the grid from bytes
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Box<dyn std::error::Error>>
+    pub fn from_bytes(bytes: JsValue) -> Result<Self, serde_wasm_bindgen::Error>
     where
         T: serde::de::DeserializeOwned,
     {
-        let grid_data: GridSerialData<T> = bincode::deserialize(bytes)?;
+        let grid_data: GridSerialData<T> = serde_wasm_bindgen::from_value(bytes)?;
 
         let mut grid = Grid::new(grid_data.width, grid_data.height);
         grid.version = grid_data.version;
@@ -282,9 +283,10 @@ mod tests {
             assert_eq!(res.neighbors, &[b.clone()]);
         }
     }
+
     #[test]
     fn test_grid_serialization() {
-        let mut grid: Grid<char> = Grid::new(3, 3);
+        let mut grid: Grid<char> = Grid::new(3, 5);
         let a = Rc::new(RefCell::new('a'));
         let b = Rc::new(RefCell::new('b'));
         let c = Rc::new(RefCell::new('c'));
@@ -295,14 +297,14 @@ mod tests {
 
         // Serialize the grid
         let bytes = grid.to_bytes();
-        assert!(!bytes.is_empty());
+        assert!(!bytes.is_err());
 
         // Deserialize the grid
-        let restored_grid: Grid<char> = Grid::from_bytes(&bytes).unwrap();
+        let restored_grid: Grid<char> = Grid::from_bytes(bytes.unwrap()).unwrap();
 
         // Verify dimensions and version
         assert_eq!(restored_grid.width, 3);
-        assert_eq!(restored_grid.height, 3);
+        assert_eq!(restored_grid.height, 5);
         assert_eq!(restored_grid.version, grid.version);
 
         // Verify items are in correct positions
@@ -328,9 +330,9 @@ mod tests {
         let grid: Grid<i32> = Grid::new(2, 2);
 
         let bytes = grid.to_bytes();
-        assert!(!bytes.is_empty());
+        assert!(!bytes.is_err());
 
-        let restored_grid: Grid<i32> = Grid::from_bytes(&bytes).unwrap();
+        let restored_grid: Grid<i32> = Grid::from_bytes(bytes.unwrap()).unwrap();
         assert_eq!(restored_grid.width, 2);
         assert_eq!(restored_grid.height, 2);
 

@@ -766,8 +766,10 @@ impl Universe {
         self.player.update_velocity(self.dt);
     }
 
-    pub fn drop_to_storage(&mut self, grid_index: GridIndex) -> Option<Vec<u8>> {
-        self.cells.drop_grid(grid_index).map(|grid| grid.to_bytes())
+    pub fn drop_to_storage(&mut self, grid_index: GridIndex) -> Option<JsValue> {
+        self.cells
+            .drop_grid(grid_index)
+            .map(|grid| grid.to_bytes().unwrap())
     }
 
     pub fn get_grids_to_load(&self) -> Vec<GridIndex> {
@@ -780,7 +782,7 @@ impl Universe {
     pub fn load_from_storage(
         &mut self,
         grid_index: GridIndex,
-        bytes: &[u8],
+        bytes: JsValue,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let grid = UniverseGrid::from_bytes(
             bytes,

@@ -19,6 +19,7 @@ use noise::{core::perlin::perlin_2d, permutationtable::PermutationTable};
 use inertia::Inertia;
 use log::log;
 use multigrid::{CellIndex, GridIndex};
+use serde::Deserialize;
 use universe::{Cell, Stats, Universe};
 
 use v2::{V2i, V2};
@@ -87,7 +88,7 @@ impl Game {
         self.universe.get_grids_to_save()
     }
 
-    pub fn load_grid(&mut self, grid_index: &GridIndex, bytes: &[u8]) {
+    pub fn load_grid(&mut self, grid_index: &GridIndex, bytes: JsValue) {
         if let Err(err) = self.universe.load_from_storage(*grid_index, bytes) {
             log!("Failed to load grid {grid_index:?}: {}", err);
         }
@@ -97,11 +98,11 @@ impl Game {
         self.universe.cells.ensure_grid(*grid_index);
     }
 
-    pub fn save_grid(&mut self, grid_index: &GridIndex) -> Vec<u8> {
+    pub fn save_grid(&mut self, grid_index: &GridIndex) -> JsValue {
         if let Some(bytes) = self.universe.drop_to_storage(*grid_index) {
             bytes
         } else {
-            Vec::new()
+            JsValue::null()
         }
     }
 

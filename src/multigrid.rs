@@ -26,7 +26,7 @@ pub struct UniverseGrid<T> {
 }
 
 impl<T: Debug> UniverseGrid<T> {
-    pub fn to_bytes(&self) -> Vec<u8>
+    pub fn to_bytes(&self) -> Result<JsValue, serde_wasm_bindgen::Error>
     where
         T: serde::Serialize + Clone,
     {
@@ -34,11 +34,11 @@ impl<T: Debug> UniverseGrid<T> {
     }
 
     pub fn from_bytes(
-        bytes: &[u8],
+        bytes: JsValue,
         grid_index: GridIndex,
         grid_width: usize,
         grid_height: usize,
-    ) -> Result<Self, Box<dyn std::error::Error>>
+    ) -> Result<Self, serde_wasm_bindgen::Error>
     where
         T: serde::de::DeserializeOwned + Clone,
     {
