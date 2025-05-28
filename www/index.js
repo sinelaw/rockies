@@ -112,9 +112,8 @@ const renderLoop = () => {
     collisions_count.textContent = (stats.collisions_count() / stats.ticks()) | 0;
     collision_pairs_tested.textContent = (stats.collision_pairs_tested() / stats.ticks()) | 0;
 
-    loadAndSave().then(() => {
-        requestAnimationFrame(renderLoop);
-    });
+    requestAnimationFrame(renderLoop);
+
 };
 
 const getIndex = (row, column) => {
@@ -147,8 +146,9 @@ const drawPixels = () => {
 
 };
 
-drawPixels();
-requestAnimationFrame(renderLoop);
+renderLoop();
+setInterval(loadAndSave, 5000);
+
 
 canvas.onmousemove = (e) => {
     if (e.buttons > 0) {
