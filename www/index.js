@@ -149,7 +149,7 @@ const drawPixels = () => {
 
 function resave() {
     loadAndSave().then(() => {
-        setTimeout(resave);
+        setTimeout(resave, 5000);
     });
 }
 resave();
