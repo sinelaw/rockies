@@ -146,8 +146,14 @@ const drawPixels = () => {
 
 };
 
+
+function resave() {
+    loadAndSave().then(() => {
+        setTimeout(resave);
+    });
+}
+resave();
 renderLoop();
-setInterval(loadAndSave, 5000);
 
 
 canvas.onmousemove = (e) => {
