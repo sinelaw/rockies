@@ -31,21 +31,66 @@ function grid_index_name(grid_index) {
     return `${js.grid_offset.x}_${js.grid_offset.y}`
 }
 
-function loadAndSave() {
+// IndexedDB helpers
+function openDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open('rockies-db', 1);
+        request.onupgradeneeded = function (event) {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains('grids')) {
+                db.createObjectStore('grids');
+            }
+        };
+        request.onsuccess = function (event) {
+            resolve(event.target.result);
+        };
+        request.onerror = function (event) {
+            reject(event.target.error);
+        };
+    });
+}
+
+function idbSet(key, value) {
+    return openDB().then(db => {
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction('grids', 'readwrite');
+            const store = tx.objectStore('grids');
+            const req = store.put(value, key);
+            req.onsuccess = () => resolve();
+            req.onerror = (e) => reject(e);
+        });
+    });
+}
+
+function idbGet(key) {
+    return openDB().then(db => {
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction('grids', 'readonly');
+            const store = tx.objectStore('grids');
+            const req = store.get(key);
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = (e) => reject(e);
+        });
+    });
+}
+
+async function loadAndSave() {
 
     let grids_to_save = game.get_grids_to_save();
     for (const grid_index of grids_to_save) {
         console.log("saving (dropping) grid: " + grid_index_name(grid_index));
         const grid = game.save_grid(grid_index);
-        // save to LocalStorage
-        localStorage.setItem(`grid_${grid_index_name(grid_index)}`, grid);
+        if (grid) {
+            // save to IndexedDB
+            await idbSet(`grid_${grid_index_name(grid_index)}`, grid);
+        }
     }
 
-    // Load grids from LocalStorage 
+    // Load grids from IndexedDB
     let grids_to_load = game.get_grids_to_load();
     for (const grid_index of grids_to_load) {
         console.log("loading grid: " + grid_index_name(grid_index));
-        const grid = localStorage.getItem(`grid_${grid_index_name(grid_index)}`);
+        const grid = await idbGet(`grid_${grid_index_name(grid_index)}`);
         if (grid) {
             game.load_grid(grid_index, grid);
         } else {

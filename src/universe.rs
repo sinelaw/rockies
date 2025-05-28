@@ -720,7 +720,11 @@ impl UniverseCells {
     }
 
     fn drop_grid(&mut self, grid_index: GridIndex) -> Option<UniverseGrid<Cell>> {
-        let grid = self.grids.get_mut(grid_index).unwrap();
+        let maybe_grid = self.grids.get_mut(grid_index);
+        let grid = match maybe_grid {
+            Some(grid) => grid,
+            None => return None,
+        };
         let grid_origin = grid_index.to_pos(grid.width, grid.height);
         for x in 0..grid.width {
             for y in 0..grid.height {

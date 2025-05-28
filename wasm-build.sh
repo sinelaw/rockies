@@ -3,7 +3,7 @@ set -eux
 export RUST_LOG=info 
 
 # Build the wasm package
-wasm-pack build --profiling -- --features=wasm_js,console_error_panic_hook --no-default-features
+wasm-pack build --dev -- --features=wasm_js,console_error_panic_hook --no-default-features
 
 cd www
 
