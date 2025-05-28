@@ -27,7 +27,8 @@ version.textContent = game.version();
 const ctx = canvas.getContext('2d');
 
 function grid_index_name(grid_index) {
-    return `${grid_index.grid_offset.x}_${grid_index.grid_offset.y}`
+    let js = grid_index.to_js();
+    return `${js.grid_offset.x}_${js.grid_offset.y}`
 }
 
 function loadAndSave() {
@@ -47,6 +48,8 @@ function loadAndSave() {
         const grid = localStorage.getItem(`grid_${grid_index_name(grid_index)}`);
         if (grid) {
             game.load_grid(grid_index, grid);
+        } else {
+            game.generate_grid(grid_index);
         }
     }
 }

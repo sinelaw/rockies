@@ -87,14 +87,18 @@ impl Game {
         self.universe.get_grids_to_save()
     }
 
-    pub fn load_grid(&mut self, grid_index: GridIndex, bytes: &[u8]) {
-        if let Err(err) = self.universe.load_from_storage(grid_index, bytes) {
+    pub fn load_grid(&mut self, grid_index: &GridIndex, bytes: &[u8]) {
+        if let Err(err) = self.universe.load_from_storage(*grid_index, bytes) {
             log!("Failed to load grid {grid_index:?}: {}", err);
         }
     }
 
-    pub fn save_grid(&mut self, grid_index: GridIndex) -> Vec<u8> {
-        if let Some(bytes) = self.universe.drop_to_storage(grid_index) {
+    pub fn generate_grid(&mut self, grid_index: &GridIndex) {
+        self.universe.cells.ensure_grid(*grid_index);
+    }
+
+    pub fn save_grid(&mut self, grid_index: &GridIndex) -> Vec<u8> {
+        if let Some(bytes) = self.universe.drop_to_storage(*grid_index) {
             bytes
         } else {
             Vec::new()

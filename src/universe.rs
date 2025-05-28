@@ -312,7 +312,7 @@ impl UniverseCells {
         }
     }
 
-    fn ensure_grid(&mut self, grid_index: GridIndex) {
+    pub fn ensure_grid(&mut self, grid_index: GridIndex) {
         let width = self.grids.grid_width;
         let height = self.grids.grid_height;
         let is_new = self
@@ -537,7 +537,7 @@ impl UniverseCells {
             // dumpen highly colliding cells
             cell.inertia.velocity = V2::zero();
         }
-        log!("index: {:?}, inertia: {new_inertia:?}", cell.index);
+        //log!("index: {:?}, inertia: {new_inertia:?}", cell.index);
     }
 
     fn update_pos(&mut self, dt: f64) {
