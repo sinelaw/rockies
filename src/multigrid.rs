@@ -6,6 +6,7 @@ use wasm_bindgen::JsValue;
 use std::convert::TryFrom;
 
 use crate::grid::GridCellRef;
+use crate::log;
 use crate::{grid::Grid, v2::V2i};
 
 #[derive(
@@ -186,23 +187,30 @@ impl<T: Debug> MultiGrid<T> {
         }
     }
 
+    // Returns only missing grid indexes (that need to be loaded)
     pub fn get_near_grids(&self, center: V2i, drop_radius: usize) -> Vec<GridIndex> {
-        let near_grids: Vec<GridIndex> = self
-            .grids
-            .iter()
-            .filter(|(grid_index, _)| {
-                let grid_pos = grid_index.to_pos(self.grid_width, self.grid_height);
-                usize::try_from((grid_pos.x - center.x).abs()).unwrap() / self.grid_width
-                    <= drop_radius
-                    || usize::try_from((grid_pos.y - center.y).abs()).unwrap() / self.grid_height
-                        <= drop_radius
-            })
-            .map(|(grid_index, _)| *grid_index)
-            .collect();
-
-        near_grids
+        let r = drop_radius as i32;
+        let center_grid = GridIndex::from_pos(center, self.grid_width, self.grid_height);
+        let mut res: Vec<GridIndex> = Vec::new();
+        for x in -r..r {
+            for y in -r..r {
+                let grid_index = GridIndex {
+                    grid_offset: V2i::new(
+                        center_grid.grid_offset.x + x,
+                        center_grid.grid_offset.y + y,
+                    ),
+                };
+                if self.grids.contains_key(&grid_index) {
+                    continue;
+                }
+                log!("center: {center:?} drop_radius: {drop_radius:?} grid_index: {grid_index:?}");
+                res.push(grid_index);
+            }
+        }
+        res
     }
 
+    // Gets only existing far grids (that can be saved and dropped)
     pub fn get_far_grids(&self, center: V2i, drop_radius: usize) -> Vec<GridIndex> {
         let far_grids: Vec<GridIndex> = self
             .grids

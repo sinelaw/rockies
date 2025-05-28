@@ -89,7 +89,7 @@ impl Game {
 
     pub fn load_grid(&mut self, grid_index: GridIndex, bytes: &[u8]) {
         if let Err(err) = self.universe.load_from_storage(grid_index, bytes) {
-            // log!("Failed to load grid {grid_index:?}: {}", err);
+            log!("Failed to load grid {grid_index:?}: {}", err);
         }
     }
 

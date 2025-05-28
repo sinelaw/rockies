@@ -24,7 +24,7 @@ wasm_js = ["console_error_panic_hook"]
 noise = "0.9"
 fnv = "1.0.3"
 rand = { version = "0.9", default-features = false }
-wasm-bindgen = {version="0.2.100"}
+wasm-bindgen = { version = "0.2.100" }
 serde-wasm-bindgen = "0.5"
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
@@ -57,10 +57,9 @@ itertools = "0.14.0"
 debug = true
 
 [package.metadata.wasm-pack.profile.profiling]
-#wasm-opt = ['-Os']
+wasm-opt = ['-Os']
 
 [package.metadata.wasm-pack.profile.profiling.wasm-bindgen]
 debug-js-glue = true
 demangle-name-section = true
 dwarf-debug-info = false
-

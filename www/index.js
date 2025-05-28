@@ -26,19 +26,25 @@ version.textContent = game.version();
 
 const ctx = canvas.getContext('2d');
 
+function grid_index_name(grid_index) {
+    return `${grid_index.grid_offset.x}_${grid_index.grid_offset.y}`
+}
+
 function loadAndSave() {
 
     let grids_to_save = game.get_grids_to_save();
     for (const grid_index of grids_to_save) {
+        console.log("saving (dropping) grid: " + grid_index_name(grid_index));
         const grid = game.save_grid(grid_index);
         // save to LocalStorage
-        localStorage.setItem(`grid_${grid_index}`, grid);
+        localStorage.setItem(`grid_${grid_index_name(grid_index)}`, grid);
     }
 
     // Load grids from LocalStorage 
     let grids_to_load = game.get_grids_to_load();
     for (const grid_index of grids_to_load) {
-        const grid = localStorage.getItem(`grid_${grid_index}`);
+        console.log("loading grid: " + grid_index_name(grid_index));
+        const grid = localStorage.getItem(`grid_${grid_index_name(grid_index)}`);
         if (grid) {
             game.load_grid(grid_index, grid);
         }
