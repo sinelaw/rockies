@@ -168,19 +168,12 @@ impl<T: Debug + Clone> Grid<T> {
     {
         let mut items = Vec::new();
 
-        // Collect all unique items and their positions
-        let mut seen_items = HashMap::new();
-
         for x in 0..self.width {
             for y in 0..self.height {
                 let result = self.get(x, y);
                 for item_ref in result.value {
-                    let item_ptr = item_ref.as_ptr();
-                    if !seen_items.contains_key(&item_ptr) {
-                        let item = item_ref.borrow().clone();
-                        seen_items.insert(item_ptr, items.len());
-                        items.push((x, y, item));
-                    }
+                    let item = item_ref.borrow().clone();
+                    items.push((x, y, item));
                 }
             }
         }

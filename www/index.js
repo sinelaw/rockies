@@ -103,8 +103,6 @@ const renderLoop = () => {
 
     game.tick();
 
-    loadAndSave();
-
     drawPixels();
 
     let stats = game.stats();
@@ -114,9 +112,9 @@ const renderLoop = () => {
     collisions_count.textContent = (stats.collisions_count() / stats.ticks()) | 0;
     collision_pairs_tested.textContent = (stats.collision_pairs_tested() / stats.ticks()) | 0;
 
-
-
-    requestAnimationFrame(renderLoop);
+    loadAndSave().then(() => {
+        requestAnimationFrame(renderLoop);
+    });
 };
 
 const getIndex = (row, column) => {
