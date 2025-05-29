@@ -709,21 +709,31 @@ impl UniverseCells {
         }
     }
 
-    fn get_near_grids(&self, center: V2) -> Vec<GridIndex> {
+    fn get_missing_grids(&self, center: V2) -> Vec<GridIndex> {
         let drop_radius = 2;
-        self.grids.get_near_grids(center.round(), drop_radius)
+        self.grids.get_missing_grids(center.round(), drop_radius)
     }
 
-    fn get_far_grids(&self, center: V2) -> Vec<GridIndex> {
-        let drop_radius = 2;
-        self.grids.get_far_grids(center.round(), drop_radius)
+    fn get_loaded_grids(&self) -> Vec<GridIndex> {
+        self.grids.get_loaded_grids()
     }
 
-    fn drop_grid(&mut self, grid_index: GridIndex) -> Option<UniverseGrid<Cell>> {
+    fn get_droppable_grids(&self, center: V2) -> Vec<GridIndex> {
+        let drop_radius = 2;
+        self.grids.get_droppable_grids(center.round(), drop_radius)
+    }
+
+    fn save_grid(&mut self, grid_index: GridIndex) -> Option<&UniverseGrid<Cell>> {
+        self.grids.get(grid_index)
+    }
+
+    pub fn drop_grid(&mut self, grid_index: GridIndex) {
         let maybe_grid = self.grids.get_mut(grid_index);
         let grid = match maybe_grid {
             Some(grid) => grid,
-            None => return None,
+            None => {
+                return;
+            }
         };
         let grid_origin = grid_index.to_pos(grid.width, grid.height);
         for x in 0..grid.width {
@@ -737,7 +747,7 @@ impl UniverseCells {
                 }
             }
         }
-        self.grids.drop_grid(grid_index)
+        self.grids.drop_grid(grid_index);
     }
 }
 
@@ -770,17 +780,26 @@ impl Universe {
         self.player.update_velocity(self.dt);
     }
 
-    pub fn drop_to_storage(&mut self, grid_index: GridIndex) -> Option<JsValue> {
+    pub fn save_grid(&mut self, grid_index: GridIndex) -> Option<JsValue> {
         self.cells
-            .drop_grid(grid_index)
+            .save_grid(grid_index)
             .map(|grid| grid.to_bytes().unwrap())
     }
 
-    pub fn get_grids_to_load(&self) -> Vec<GridIndex> {
-        self.cells.get_near_grids(self.player.inertia.pos)
+    pub fn drop_grid(&mut self, grid_index: GridIndex) {
+        self.cells.drop_grid(grid_index)
     }
-    pub fn get_grids_to_save(&self) -> Vec<GridIndex> {
-        self.cells.get_far_grids(self.player.inertia.pos)
+
+    pub fn get_missing_grids(&self) -> Vec<GridIndex> {
+        self.cells.get_missing_grids(self.player.inertia.pos)
+    }
+
+    pub fn get_loaded_grids(&self) -> Vec<GridIndex> {
+        self.cells.get_loaded_grids()
+    }
+
+    pub fn get_droppable_grids(&self) -> Vec<GridIndex> {
+        self.cells.get_droppable_grids(self.player.inertia.pos)
     }
 
     pub fn load_from_storage(

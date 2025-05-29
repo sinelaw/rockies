@@ -19,7 +19,6 @@ use noise::{core::perlin::perlin_2d, permutationtable::PermutationTable};
 use inertia::Inertia;
 use log::log;
 use multigrid::{CellIndex, GridIndex};
-use serde::Deserialize;
 use universe::{Cell, Stats, Universe};
 
 use v2::{V2i, V2};
@@ -80,12 +79,16 @@ impl Game {
         x >= 0 && x < (self.width as i32) && y >= 0 && y < (self.height as i32)
     }
 
-    pub fn get_grids_to_load(&self) -> Vec<GridIndex> {
-        self.universe.get_grids_to_load()
+    pub fn get_missing_grids(&self) -> Vec<GridIndex> {
+        self.universe.get_missing_grids()
     }
 
-    pub fn get_grids_to_save(&self) -> Vec<GridIndex> {
-        self.universe.get_grids_to_save()
+    pub fn get_loaded_grids(&self) -> Vec<GridIndex> {
+        self.universe.get_loaded_grids()
+    }
+
+    pub fn get_droppable_grids(&self) -> Vec<GridIndex> {
+        self.universe.get_droppable_grids()
     }
 
     pub fn load_grid(&mut self, grid_index: &GridIndex, bytes: JsValue) {
@@ -99,11 +102,15 @@ impl Game {
     }
 
     pub fn save_grid(&mut self, grid_index: &GridIndex) -> JsValue {
-        if let Some(bytes) = self.universe.drop_to_storage(*grid_index) {
+        if let Some(bytes) = self.universe.save_grid(*grid_index) {
             bytes
         } else {
             JsValue::null()
         }
+    }
+
+    pub fn drop_grid(&mut self, grid_index: &GridIndex) {
+        self.universe.drop_grid(*grid_index)
     }
 
     pub fn render(&mut self) -> () {

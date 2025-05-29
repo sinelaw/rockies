@@ -76,18 +76,8 @@ function idbGet(key) {
 
 async function loadAndSave() {
 
-    let grids_to_save = game.get_grids_to_save();
-    for (const grid_index of grids_to_save) {
-        console.log("saving (dropping) grid: " + grid_index_name(grid_index));
-        const grid = game.save_grid(grid_index);
-        if (grid) {
-            // save to IndexedDB
-            await idbSet(`grid_${grid_index_name(grid_index)}`, grid);
-        }
-    }
-
     // Load grids from IndexedDB
-    let grids_to_load = game.get_grids_to_load();
+    let grids_to_load = game.get_missing_grids();
     for (const grid_index of grids_to_load) {
         console.log("loading grid: " + grid_index_name(grid_index));
         const grid = await idbGet(`grid_${grid_index_name(grid_index)}`);
@@ -97,6 +87,26 @@ async function loadAndSave() {
             game.generate_grid(grid_index);
         }
     }
+
+    let loaded_grids = game.get_loaded_grids();
+    const savePromises = [];
+    for (const grid_index of grids_to_save) {
+        console.log("saving (dropping) grid: " + grid_index_name(grid_index));
+        const grid = game.save_grid(grid_index);
+        if (grid) {
+            // Collect promises instead of awaiting
+            savePromises.push(idbSet(`grid_${grid_index_name(grid_index)}`, grid));
+        }
+    }
+    let droppable_grids = game.get_droppable_grids();
+    for (const grid_index of droppable_grids) {
+        console.log("dropping grid: " + grid_index_name(grid_index));
+        game.drop_grid(grid_index);
+    }
+
+    // Wait for all saves to complete
+    await Promise.all(savePromises);
+
 }
 
 const renderLoop = () => {

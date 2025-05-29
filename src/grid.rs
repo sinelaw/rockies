@@ -12,7 +12,7 @@
 // - **Versioning**: The `GridCell` uses a `version` to track changes. This allows for
 //   efficient clearing of cell data without reallocating memory.
 use serde::{Deserialize, Serialize};
-use std::{cell::RefCell, collections::HashMap, fmt::Debug, rc::Rc};
+use std::{cell::RefCell, fmt::Debug, rc::Rc};
 use wasm_bindgen::JsValue;
 
 pub type GridCellRef<T> = Rc<RefCell<T>>;
