@@ -90,7 +90,7 @@ async function loadAndSave() {
 
     let loaded_grids = game.get_loaded_grids();
     const savePromises = [];
-    for (const grid_index of grids_to_save) {
+    for (const grid_index of loaded_grids) {
         console.log("saving (dropping) grid: " + grid_index_name(grid_index));
         const grid = game.save_grid(grid_index);
         if (grid) {
