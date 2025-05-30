@@ -188,7 +188,7 @@ impl<T: Debug> MultiGrid<T> {
     }
 
     // Returns only missing grid indexes (that need to be loaded)
-    pub fn get_missing_grids(&self, center: V2i, drop_radius: usize) -> Vec<GridIndex> {
+    pub fn get_dropped_grids(&self, center: V2i, drop_radius: usize) -> Vec<GridIndex> {
         let r = drop_radius as i32;
         let center_grid = GridIndex::from_pos(center, self.grid_width, self.grid_height);
         let mut res: Vec<GridIndex> = Vec::new();
@@ -210,7 +210,7 @@ impl<T: Debug> MultiGrid<T> {
         res
     }
 
-    pub fn get_droppable_grids(&self, center: V2i, drop_radius: usize) -> Vec<GridIndex> {
+    pub fn get_far_grids(&self, center: V2i, drop_radius: usize) -> Vec<GridIndex> {
         let r = drop_radius as i32;
         let center_grid = GridIndex::from_pos(center, self.grid_width, self.grid_height);
 

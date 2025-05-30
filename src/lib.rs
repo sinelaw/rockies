@@ -11,6 +11,7 @@ mod utils;
 mod v2;
 use color::Color;
 
+mod generator;
 mod log;
 
 use noise::Vector2;

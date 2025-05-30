@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use crate::assets;
 use crate::color::Color;
+use crate::generator::Generator;
 use crate::grid::GridCellRef;
 use crate::inertia::Inertia;
 use crate::multigrid::{CellIndex, GridIndex, MultiGrid, UniverseGrid};
@@ -271,6 +272,7 @@ pub struct UniverseCells {
     moving_cells: FnvHashMap<CellIndex, GridCellRef<Cell>>,
 
     grids: MultiGrid<Cell>,
+    generator: Generator,
     next_cell_index: usize,
 
     stats: Stats,
@@ -285,6 +287,7 @@ impl UniverseCells {
     fn new(width: usize, height: usize) -> UniverseCells {
         UniverseCells {
             moving_cells: FnvHashMap::default(),
+            generator: Generator::new(0 as u32),
 
             grids: MultiGrid::new(width, height),
             next_cell_index: 0,
@@ -297,80 +300,18 @@ impl UniverseCells {
         }
     }
 
-    fn wall_cell(pos: V2i, color: Color) -> Cell {
-        Cell {
-            index: CellIndex::default(),
-            color: color,
-            inertia: Inertia {
-                velocity: V2::zero(),
-                force: V2::zero(),
-                pos: pos.to_v2(),
-                mass: 0,
-                elasticity: 1.0, // allow other mass to determine
-                collision_stats: 0,
-            },
-        }
-    }
-
     pub fn ensure_grid(&mut self, grid_index: GridIndex) {
         let width = self.grids.grid_width;
         let height = self.grids.grid_height;
-        let is_new = self
-            .grids
-            .or_insert_with(grid_index, || UniverseGrid::new(grid_index, width, height));
-        if is_new {
-            self.create_wall_cells(grid_index);
-        }
+        let mut generator = &mut self.generator;
+        let is_new = self.grids.or_insert_with(grid_index, || {
+            generator.generate_pristine_grid(grid_index, width, height)
+        });
     }
 
     fn load_from_storage(&mut self, grid_index: GridIndex, grid: UniverseGrid<Cell>) {
         // Load a grid from storage, if it exists
         self.grids.insert(grid_index, grid);
-    }
-
-    fn generated_point(&self, pos: V2i) -> f64 {
-        // Check for caverns
-        let posv = pos.to_v2().cmul(0.01);
-
-        // perlin_2d returns a value in (-1..1)
-        let local_seed = perlin_2d(Vector2::new(posv.x, posv.y), &self.hasher).abs()
-            * perlin_2d(Vector2::new(posv.y * 0.3, posv.x * 0.4), &self.hasher).abs();
-        local_seed
-    }
-
-    fn create_wall_cells(&mut self, grid_index: GridIndex) {
-        let width = self.grids.grid_width;
-        let height = self.grids.grid_height;
-        let base_pos = grid_index.to_pos(width, height);
-
-        for x in 0..width {
-            for y in 0..height {
-                let pos = V2i::new(x as i32, y as i32).plus(base_pos);
-                let altitude = height as i32 - pos.y;
-                let above_ground = altitude > 0;
-                if above_ground {
-                    // generate "mountains"
-                    let val = self.generated_point(V2i::new(pos.x, 0));
-
-                    if val * 100.0 > altitude as f64 {
-                        self.add_cell(UniverseCells::wall_cell(
-                            pos,
-                            Color::hsv(30.0, 1.0, 0.5), // brown
-                        ));
-                    }
-                } else {
-                    // below ground
-                    let val = self.generated_point(pos);
-                    let depth = -altitude as f64;
-                    if val < 0.02 + 0.5 / (depth * 0.1) {
-                        self.add_cell(UniverseCells::wall_cell(
-                            pos,
-                            Color::hsv(30.0, 1.0, (1.0 - val) * 0.5), // brown
-                        ));
-                    }
-                }
-            }
-        }
     }
 
     pub fn get_range(
@@ -711,7 +652,7 @@ impl UniverseCells {
 
     fn get_missing_grids(&self, center: V2) -> Vec<GridIndex> {
         let drop_radius = 2;
-        self.grids.get_missing_grids(center.round(), drop_radius)
+        self.grids.get_dropped_grids(center.round(), drop_radius)
     }
 
     fn get_loaded_grids(&self) -> Vec<GridIndex> {
@@ -720,7 +661,7 @@ impl UniverseCells {
 
     fn get_droppable_grids(&self, center: V2) -> Vec<GridIndex> {
         let drop_radius = 2;
-        self.grids.get_droppable_grids(center.round(), drop_radius)
+        self.grids.get_far_grids(center.round(), drop_radius)
     }
 
     fn save_grid(&mut self, grid_index: GridIndex) -> Option<&UniverseGrid<Cell>> {
