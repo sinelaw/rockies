@@ -46,25 +46,31 @@ CONSTANTS GridPos, (* Set of all possible grid positions *)
           PlayerId  (* Set of all possible player identifiers *)
 
 (* -- Variables -- *)
-VARIABLES grid_state,         (* Function: GridPos -> {"missing", "stored"} *)
+VARIABLES grid_store_status,  (* Function: GridPos -> {"stored", "not_stored"} *)
           grid_load_status,   (* Function: GridPos -> {"loaded", "not_loaded"} *)
           grid_dirty_status,  (* Function: GridPos -> {"dirty", "unmodified", "pristine"} *)
           player_positions    (* Function: PlayerId -> GridPos *)
 
 (* -- Type Invariant -- *)
 TypeOK ==
-    /\ (grid_state \in         [GridPos -> {"missing", "stored"}])
+    /\ (grid_store_status  \in [GridPos -> {"stored", "not_stored"}])
     /\ (grid_load_status   \in [GridPos -> {"loaded", "not_loaded"}])
-    /\ (grid_dirty_status  \in [GridPos -> {"dirty", "unmodified", "pristine"}])
+    /\ (grid_dirty_status  \in [GridPos -> {"dirty", "unmodified", "pristine", "unknown"}])
     /\ (player_positions   \in [PlayerId -> GridPos])
+
+(* -- Invariant -- *)
+(* Invariant: If a grid is loaded its dirty_status can't be "unknown" *)
+KnownDirtyStatus == 
+    \A pos \in GridPos :
+        (grid_load_status[pos] = "loaded") => (grid_dirty_status[pos] \in {"dirty", "unmodified", "pristine"})
+  
 
 (* -- Initial State -- *)
 Init ==
-    /\ (\A g_pos \in GridPos :
-        grid_state[g_pos] = "missing"
-        /\ grid_load_status[g_pos] = "not_loaded")
-    /\ (\A p_id \in PlayerId :
-        player_positions[p_id] \in GridPos)
+    /\ grid_store_status = [g_pos \in GridPos |->"not_stored" ]
+    /\ grid_load_status = [g_pos \in GridPos |-> "not_loaded"]
+    /\ grid_dirty_status = [g_pos \in GridPos |-> "unknown"]
+    /\ player_positions = [p_id \in PlayerId |-> CHOOSE pos \in GridPos: TRUE]
 
 (* -- Actions -- *)
 
@@ -74,25 +80,25 @@ PlayerMoves(player_id, new_pos) ==
     /\ new_pos \in GridPos
     /\ grid_load_status[new_pos] = "loaded"
     /\ player_positions' = [player_positions EXCEPT ![player_id] = new_pos]
-    /\ UNCHANGED <<grid_state, grid_load_status, grid_dirty_status>>
+    /\ UNCHANGED <<grid_store_status, grid_load_status, grid_dirty_status>>
 
 (* A missing grid is loaded and marked pristine *)
 LoadMissingGrid(pos) ==
     /\ pos \in GridPos
-    /\ grid_state[pos] = "missing"
+    /\ grid_store_status[pos] = "not_stored"
     /\ grid_load_status[pos] = "not_loaded"
     /\ grid_load_status' = [grid_load_status EXCEPT ![pos] = "loaded"]
     /\ grid_dirty_status' = [grid_dirty_status EXCEPT ![pos] = "pristine"]
-    /\ UNCHANGED <<grid_state, player_positions>>
+    /\ UNCHANGED <<grid_store_status, player_positions>>
 
 (* A stored grid is loaded and marked unmodified *)
 LoadStoredGrid(pos) ==
     /\ pos \in GridPos
-    /\ grid_state[pos] = "stored"
+    /\ grid_store_status[pos] = "stored"
     /\ grid_load_status[pos] = "not_loaded"
     /\ grid_load_status' = [grid_load_status EXCEPT ![pos] = "loaded"]
     /\ grid_dirty_status' = [grid_dirty_status EXCEPT ![pos] = "unmodified"]
-    /\ UNCHANGED <<grid_state, player_positions>>
+    /\ UNCHANGED <<grid_store_status, player_positions>>
 
 (* A loaded grid which is pristine or unmodified is marked dirty *)
 MarkDirty(pos) ==
@@ -100,34 +106,33 @@ MarkDirty(pos) ==
     /\ grid_load_status[pos] = "loaded"
     /\ (grid_dirty_status[pos] = "pristine" \/ grid_dirty_status[pos] = "unmodified") (* Internal disjunction kept for clarity *)
     /\ grid_dirty_status' = [grid_dirty_status EXCEPT ![pos] = "dirty"]
-    /\ UNCHANGED <<grid_state, grid_load_status, player_positions>>
+    /\ UNCHANGED <<grid_store_status, grid_load_status, player_positions>>
 
 (* A loaded grid which is dirty or unmodified is stored (persistently) *)
 StoreGrid(pos) ==
     /\ pos \in GridPos
     /\ grid_load_status[pos] = "loaded"
-    /\ (grid_dirty_status[pos] = "dirty" \/ grid_dirty_status[pos] = "unmodified") (* Internal disjunction kept for clarity *)
-    /\ grid_state' = [grid_state EXCEPT ![pos] = "stored"]
-    /\ grid_load_status' = [grid_load_status EXCEPT ![pos] = "not_loaded"]
-    /\ UNCHANGED <<grid_dirty_status, player_positions>>
+    /\ grid_dirty_status[pos] \in {"dirty", "unmodified"}
+    /\ grid_store_status' = [grid_store_status EXCEPT ![pos] = "stored"]
+    /\ grid_dirty_status' = [grid_dirty_status EXCEPT ![pos] = "unmodified"]
+    /\ UNCHANGED <<grid_load_status, player_positions>>
 
 (* A loaded grid which is pristine or unmodified is set "not loaded" (unloaded from memory) *)
 UnloadPristineUnmodifiedGrid(pos) ==
     /\ pos \in GridPos
     /\ grid_load_status[pos] = "loaded"
-    /\ (grid_dirty_status[pos] = "pristine" \/ grid_dirty_status[pos] = "unmodified") (* Internal disjunction kept for clarity *)
+    /\ grid_dirty_status[pos] \in {"pristine", "unmodified"}
     /\ grid_load_status' = [grid_load_status EXCEPT ![pos] = "not_loaded"]
-    /\ UNCHANGED <<grid_state, grid_dirty_status, player_positions>>
+    /\ UNCHANGED <<grid_store_status, grid_dirty_status, player_positions>>
 
 (* A loaded grid which is dirty is stored (persistently) and set unmodified (after storing) *)
 StoreAndUnloadDirtyGrid(pos) ==
     /\ pos \in GridPos
     /\ grid_load_status[pos] = "loaded"
     /\ grid_dirty_status[pos] = "dirty"
-    /\ grid_state' = [grid_state EXCEPT ![pos] = "stored"]
-    /\ grid_load_status' = [grid_load_status EXCEPT ![pos] = "not_loaded"]
+    /\ grid_store_status' = [grid_store_status EXCEPT ![pos] = "stored"]
     /\ grid_dirty_status' = [grid_dirty_status EXCEPT ![pos] = "unmodified"]
-    /\ UNCHANGED player_positions
+    /\ UNCHANGED <<grid_load_status, player_positions>>
 
 (* -- Next State -- *)
 Next ==
@@ -138,10 +143,6 @@ Next ==
     \/ \E pos \in GridPos : StoreGrid(pos)
     \/ \E pos \in GridPos : UnloadPristineUnmodifiedGrid(pos)
     \/ \E pos \in GridPos : StoreAndUnloadDirtyGrid(pos)
-
-(* -- Specification -- *)
-Spec == Init
-    /\ [Next]_<<grid_state, grid_load_status, grid_dirty_status, player_positions>>
 
 (* -- Fairness (Optional, but good practice for liveness properties) -- *)
 (* To ensure all enabled actions eventually happen, add liveness properties
