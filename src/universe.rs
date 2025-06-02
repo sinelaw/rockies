@@ -299,7 +299,7 @@ impl UniverseCells {
         let generator = &mut self.generator;
         let (is_new, grid) = self
             .grids
-            .or_insert_with(grid_index, || UniverseGrid::new(grid_index, 64, 64));
+            .or_insert_with(grid_index, || UniverseGrid::new(grid_index, width, height));
         if is_new {
             generator.generate_pristine_grid(grid, grid_index, width, height)
         }
