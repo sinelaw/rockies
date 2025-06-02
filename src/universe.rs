@@ -11,9 +11,6 @@ use crate::v2::{V2i, V2};
 
 use crate::log::log;
 
-use noise::Vector2;
-use noise::{core::perlin::perlin_2d, permutationtable::PermutationTable};
-
 use fnv::{FnvHashMap, FnvHashSet};
 use wasm_bindgen::prelude::*;
 
@@ -279,8 +276,6 @@ pub struct UniverseCells {
     // transient data:
     collisions_list: Vec<(GridCellRef<Cell>, GridCellRef<Cell>)>,
     collisions_map: FnvHashSet<(CellIndex, CellIndex)>,
-
-    hasher: PermutationTable,
 }
 
 impl UniverseCells {
@@ -295,18 +290,19 @@ impl UniverseCells {
 
             collisions_list: Vec::new(),
             collisions_map: FnvHashSet::default(),
-
-            hasher: PermutationTable::new(0 as u32),
         }
     }
 
     pub fn ensure_grid(&mut self, grid_index: GridIndex) {
         let width = self.grids.grid_width;
         let height = self.grids.grid_height;
-        let mut generator = &mut self.generator;
-        let is_new = self.grids.or_insert_with(grid_index, || {
-            generator.generate_pristine_grid(grid_index, width, height)
-        });
+        let generator = &mut self.generator;
+        let (is_new, grid) = self
+            .grids
+            .or_insert_with(grid_index, || UniverseGrid::new(grid_index, 64, 64));
+        if is_new {
+            generator.generate_pristine_grid(grid, grid_index, width, height)
+        }
     }
 
     fn load_from_storage(&mut self, grid_index: GridIndex, grid: UniverseGrid<Cell>) {

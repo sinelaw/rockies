@@ -150,11 +150,14 @@ impl<T: Debug> MultiGrid<T> {
         }
     }
 
-    pub fn or_insert_with(&mut self, index: GridIndex, f: impl Fn() -> UniverseGrid<T>) -> bool {
+    pub fn or_insert_with(
+        &mut self,
+        index: GridIndex,
+        f: impl Fn() -> UniverseGrid<T>,
+    ) -> (bool, &mut UniverseGrid<T>) {
         let is_new = !self.grids.contains_key(&index);
-        self.grids.entry(index).or_insert_with(f);
-        assert!(self.grids.contains_key(&index));
-        is_new
+        let res = self.grids.entry(index).or_insert_with(f);
+        (is_new, res)
     }
 
     pub fn insert(&mut self, index: GridIndex, grid: UniverseGrid<T>) {

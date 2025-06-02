@@ -7,7 +7,7 @@ use noise::{core::perlin::perlin_2d, permutationtable::PermutationTable};
 use crate::color::Color;
 use crate::inertia::Inertia;
 use crate::multigrid::{CellIndex, GridIndex, UniverseGrid};
-use crate::universe::{Cell, UniverseCells};
+use crate::universe::Cell;
 use crate::v2::{V2i, V2};
 
 pub struct Generator {
@@ -48,12 +48,12 @@ impl Generator {
 
     pub fn generate_pristine_grid(
         &mut self,
+        grid: &mut UniverseGrid<Cell>,
         grid_index: GridIndex,
         width: usize,
         height: usize,
-    ) -> UniverseGrid<Cell> {
+    ) {
         let base_pos = grid_index.to_pos(width, height);
-        let mut grid = UniverseGrid::new(grid_index, 64, 64);
 
         for x in 0..width {
             for y in 0..height {
@@ -82,6 +82,5 @@ impl Generator {
                 }
             }
         }
-        grid
     }
 }
