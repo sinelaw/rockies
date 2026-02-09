@@ -23,7 +23,7 @@ wasm_js = ["console_error_panic_hook"]
 [dependencies]
 noise = "0.9"
 fnv = "1.0.3"
-rand = { version = "0.9", default-features = false }
+rand = { version = "0.10", default-features = false }
 wasm-bindgen = { version = "0.2.100" }
 serde-wasm-bindgen = "0.5"
 
